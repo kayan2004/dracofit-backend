@@ -4,11 +4,11 @@ import { UsersModule } from './users/users.module';
 import { User } from './users/entities/user.entity';
 import { ExercisesModule } from './exercises/exercises.module';
 import { Exercise } from './exercises/entities/exercise.entity';
-
+import { AuthModule } from './auth/auth.module';
 @Module({
   imports: [
     TypeOrmModule.forRoot({
-      type: 'postgres', // Change this to your database type (e.g., 'mysql', 'sqlite', etc.)
+      type: 'postgres',
       host: 'localhost', // Change this to your database host
       port: 5432, // Change this to your database port
       username: 'postgres', // Change this to your database username
@@ -19,6 +19,7 @@ import { Exercise } from './exercises/entities/exercise.entity';
     }),
     UsersModule,
     ExercisesModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

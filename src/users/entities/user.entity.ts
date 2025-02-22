@@ -36,4 +36,19 @@ export class User {
 
   @Column({ default: false })
   is_admin: boolean;
+
+  @Column({ default: false })
+  isEmailVerified: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  verificationToken: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  verificationTokenExpires: Date | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  resetPasswordToken: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  resetPasswordTokenExpires: Date | null;
 }

@@ -5,8 +5,14 @@ import { User } from './users/entities/user.entity';
 import { ExercisesModule } from './exercises/exercises.module';
 import { Exercise } from './exercises/entities/exercise.entity';
 import { AuthModule } from './auth/auth.module';
+import { ConfigModule } from '@nestjs/config';
+import { EmailModule } from './email/email.module';
+
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true, // makes ConfigModule available throughout the app
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: 'localhost', // Change this to your database host
@@ -17,6 +23,7 @@ import { AuthModule } from './auth/auth.module';
       entities: [User, Exercise], // Add your entities here
       synchronize: true,
     }),
+    EmailModule,
     UsersModule,
     ExercisesModule,
     AuthModule,

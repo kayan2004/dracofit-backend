@@ -6,8 +6,6 @@ import {
   IsEmail,
   IsDate,
   IsEnum,
-  IsBoolean,
-  IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Gender } from '../../users/entities/user.entity';
@@ -22,14 +20,15 @@ export class SignUpDto {
   @MinLength(8)
   @MaxLength(20)
   @Matches(/(?:(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).*)/, {
-    message: 'password too weak',
+    message:
+      'password must contain at least 1 uppercase letter, 1 lowercase letter, and 1 number',
   })
   password: string;
 
   @IsString()
   fullname: string;
 
-  @IsEmail()
+  @IsEmail({}, { message: 'Please provide a valid email address' })
   email: string;
 
   @Type(() => Date)

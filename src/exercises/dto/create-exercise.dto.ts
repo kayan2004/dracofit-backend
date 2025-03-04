@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsNotEmpty } from 'class-validator';
+import { IsString, IsEnum, IsNotEmpty, IsArray } from 'class-validator';
 import { Difficulty } from '../entities/exercise.entity';
 
 export class CreateExerciseDto {
@@ -20,10 +20,11 @@ export class CreateExerciseDto {
   @IsString()
   equipment: string;
 
-  @IsString()
   @IsNotEmpty()
-  musclegroup: string;
+  @IsArray()
+  @IsString({ each: true })
+  targetMuscles?: string[];
 
   @IsString()
-  gif: string;
+  videoUrl: string;
 }

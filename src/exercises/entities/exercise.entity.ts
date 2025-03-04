@@ -1,36 +1,59 @@
 import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
 export enum Difficulty {
-  beginner = 'Beginner',
-  intermidiate = 'Intermidiate',
-  advanced = 'Advanced',
+  BEGINNER = 'beginner',
+  INTERMEDIATE = 'intermediate',
+  ADVANCED = 'advanced',
 }
-@Entity()
+
+@Entity('exercises')
 export class Exercise {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column({
+    name: 'name',
+    unique: true,
+  })
   name: string;
 
-  @Column()
+  @Column({ name: 'description' })
   description: string;
 
-  @Column()
+  @Column({ name: 'type' })
   type: string;
 
   @Column({
+    name: 'difficulty',
     type: 'enum',
     enum: Difficulty,
   })
   difficulty: Difficulty;
 
-  @Column()
+  @Column({ name: 'equipment' })
   equipment: string;
 
-  @Column({ nullable: false })
-  musclegroup: string;
+  @Column('text', {
+    name: 'target_muscles',
+    array: true,
+  })
+  targetMuscles: string[];
 
-  @Column()
-  gif: string;
+  @Column({ name: 'video_url', nullable: true })
+  videoUrl: string;
+
+  // @Column({
+  //   name: 'created_at',
+  //   type: 'timestamp',
+  //   default: () => 'CURRENT_TIMESTAMP'
+  // })
+  // createdAt: Date;
+
+  // @Column({
+  //   name: 'updated_at',
+  //   type: 'timestamp',
+  //   default: () => 'CURRENT_TIMESTAMP',
+  //   onUpdate: 'CURRENT_TIMESTAMP'
+  // })
+  // updatedAt: Date;
 }

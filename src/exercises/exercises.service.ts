@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { CreateExerciseDto } from './dto/create-exercise.dto';
 import { UpdateExerciseDto } from './dto/update-exercise.dto';
 import { Exercise } from './entities/exercise.entity';
-
+import { FilterExerciseDto } from './dto/filter-exercise.dto';
 @Injectable()
 export class ExercisesService {
   constructor(
@@ -31,8 +31,26 @@ export class ExercisesService {
     }
   }
 
-  async findAll(): Promise<Exercise[]> {
-    return await this.exercisesRepository.find();
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{
+    exercises: Exercise[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    const [exercises, total] = await this.exercisesRepository.findAndCount({
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      exercises,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async findOne(id: number): Promise<Exercise> {
@@ -56,16 +74,61 @@ export class ExercisesService {
     return exercise;
   }
 
-  async findByMuscleGroup(musclegroup: string): Promise<Exercise[]> {
-    const exercises = await this.exercisesRepository.find({
-      where: { musclegroup },
-    });
-    if (exercises.length === 0) {
-      throw new NotFoundException(
-        `No exercises found for muscle group ${musclegroup}`,
+  async findWithFilters(filters: FilterExerciseDto): Promise<{
+    exercises: Exercise[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    const queryBuilder =
+      this.exercisesRepository.createQueryBuilder('exercise');
+
+    if (filters.difficulty) {
+      queryBuilder.andWhere('exercise.difficulty = :difficulty', {
+        difficulty: filters.difficulty,
+      });
+    }
+
+    if (filters.targetMuscles && filters.targetMuscles.length > 0) {
+      queryBuilder.andWhere(
+        'exercise.targetMuscles && ARRAY[:...targetMuscles]',
+        {
+          targetMuscles: filters.targetMuscles,
+        },
       );
     }
-    return exercises;
+
+    if (filters.type) {
+      queryBuilder.andWhere('LOWER(exercise.type) = LOWER(:type)', {
+        type: filters.type,
+      });
+    }
+
+    if (filters.equipment) {
+      queryBuilder.andWhere('LOWER(exercise.equipment) = LOWER(:equipment)', {
+        equipment: filters.equipment,
+      });
+    }
+
+    // Add pagination
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+    const skip = (page - 1) * limit;
+
+    queryBuilder.skip(skip).take(limit);
+
+    const [exercises, total] = await queryBuilder.getManyAndCount();
+
+    if (exercises.length === 0) {
+      throw new NotFoundException('No exercises found matching the criteria');
+    }
+
+    return {
+      exercises,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async remove(id: number): Promise<void> {

@@ -6,15 +6,29 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
 } from '@nestjs/common';
+import { Exercise } from './entities/exercise.entity';
 import { ExercisesService } from './exercises.service';
 import { CreateExerciseDto } from './dto/create-exercise.dto';
 import { UpdateExerciseDto } from './dto/update-exercise.dto';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { AdminGuard } from 'src/auth/admin.guard';
+import { ValidationPipe } from '@nestjs/common';
+import { FilterExerciseDto } from './dto/filter-exercise.dto';
 
+@UseGuards(JwtAuthGuard)
 @Controller('exercises')
 export class ExercisesController {
   constructor(private readonly exercisesService: ExercisesService) {}
 
+  @Get('filter')
+  findWithFilters(@Query(ValidationPipe) filters: FilterExerciseDto) {
+    return this.exercisesService.findWithFilters(filters);
+  }
+
+  @UseGuards(AdminGuard)
   @Post()
   create(@Body() createExerciseDto: CreateExerciseDto) {
     return this.exercisesService.create(createExerciseDto);
@@ -30,6 +44,7 @@ export class ExercisesController {
     return this.exercisesService.findOne(+id);
   }
 
+  @UseGuards(AdminGuard)
   @Patch(':id')
   update(
     @Param('id') id: number,
@@ -38,6 +53,7 @@ export class ExercisesController {
     return this.exercisesService.update(+id, updateExerciseDto);
   }
 
+  @UseGuards(AdminGuard)
   @Delete(':id')
   remove(@Param('id') id: number) {
     return this.exercisesService.remove(+id);

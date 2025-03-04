@@ -35,7 +35,7 @@ async function seedAdmin() {
       gender: Gender.MALE,
       created_at: new Date(),
       is_admin: true,
-      isEmailVerified: true, // Admin user is pre-verified
+      isEmailVerified: true,
     });
 
     await userRepository.save(admin);

@@ -1,11 +1,12 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import { WorkoutPlan } from '../../workout_plans/entities/workout_plan.entity';
 
 export enum Gender {
   MALE = 'male',
   FEMALE = 'female',
 }
 
-@Entity()
+@Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
@@ -51,4 +52,7 @@ export class User {
 
   @Column({ type: 'timestamp', nullable: true })
   resetPasswordTokenExpires: Date | null;
+
+  @OneToMany(() => WorkoutPlan, (workoutPlan) => workoutPlan.user)
+  workoutPlans: WorkoutPlan[];
 }

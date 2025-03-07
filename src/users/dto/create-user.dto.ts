@@ -1,42 +1,37 @@
-import { Gender } from '../entities/user.entity';
 import {
   IsNotEmpty,
   IsString,
   IsEmail,
-  IsDate,
-  IsEnum,
   IsBoolean,
   IsOptional,
+  MinLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   username: string;
 
   @IsString()
-  @IsNotEmpty()
-  fullname: string;
+  @MinLength(2)
+  firstName: string;
+
+  @IsString()
+  @MinLength(2)
+  lastName: string;
 
   @IsEmail()
   email: string;
-
-  @IsDate()
-  @Type(() => Date)
-  dob: Date;
 
   @IsString()
   @IsNotEmpty()
   password: string;
 
-  @IsEnum(Gender)
-  gender: Gender;
-
-  @IsDate()
-  @Type(() => Date)
-  created_at: Date;
+  @IsBoolean()
+  @IsOptional()
+  isAdmin: boolean = false;
 
   @IsBoolean()
   @IsOptional()
-  is_admin: boolean = false;
+  isEmailVerified: boolean = false;
 }

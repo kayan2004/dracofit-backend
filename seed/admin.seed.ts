@@ -2,7 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
-import { Gender } from '../src/users/entities/user.entity';
 import * as bcrypt from 'bcrypt';
 
 async function seedAdmin() {
@@ -12,7 +11,7 @@ async function seedAdmin() {
   const userRepository = dataSource.getRepository(User);
 
   // Check if an admin user already exists
-  const adminUser = await userRepository.findOne({ where: { is_admin: true } });
+  const adminUser = await userRepository.findOne({ where: { isAdmin: true } });
   if (!adminUser) {
     // Get the admin password from environment variables
     const adminPassword = process.env.ADMIN_PASSWORD;
@@ -28,13 +27,12 @@ async function seedAdmin() {
 
     const admin = userRepository.create({
       username: 'admin',
-      fullname: 'Administrator',
+      firstName: 'Admin',
+      lastName: 'strator',
       email: 'admin@example.com',
       password: hashedPassword,
-      dob: new Date('1990-01-01'),
-      gender: Gender.MALE,
-      created_at: new Date(),
-      is_admin: true,
+      createdAt: new Date(),
+      isAdmin: true,
       isEmailVerified: true,
     });
 

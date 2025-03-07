@@ -9,7 +9,12 @@ import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { EmailModule } from './email/email.module';
 import { WorkoutPlansModule } from './workout_plans/workout_plans.module';
-
+import { UserDetailsModule } from './user_details/user_details.module';
+import { UserDetail } from './user_details/entities/user_detail.entity';
+import { WorkoutExercisesModule } from './workout_exercises/workout_exercises.module';
+import { WorkoutExercise } from './workout_exercises/entities/workout_exercise.entity';
+import { UserTokens } from './user-tokens/entities/user-token.entity';
+import { UserTokensModule } from './user-tokens/user-tokens.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,7 +27,14 @@ import { WorkoutPlansModule } from './workout_plans/workout_plans.module';
       username: 'postgres', // Change this to your database username
       password: 'root', // Change this to your database password
       database: 'dracofit', // Change this to your database name
-      entities: [User, Exercise, WorkoutPlan], // Add your entities here
+      entities: [
+        User,
+        UserDetail,
+        Exercise,
+        WorkoutPlan,
+        WorkoutExercise,
+        UserTokens,
+      ], // Add your entities here
       synchronize: true,
     }),
     EmailModule,
@@ -30,6 +42,9 @@ import { WorkoutPlansModule } from './workout_plans/workout_plans.module';
     ExercisesModule,
     AuthModule,
     WorkoutPlansModule,
+    UserDetailsModule,
+    WorkoutExercisesModule,
+    UserTokensModule,
   ],
 })
 export class AppModule {}

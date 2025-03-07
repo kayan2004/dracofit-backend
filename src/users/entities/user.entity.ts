@@ -1,58 +1,45 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  OneToMany,
+  CreateDateColumn,
+} from 'typeorm';
 import { WorkoutPlan } from '../../workout_plans/entities/workout_plan.entity';
-
-export enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
-}
+import { UserTokens } from '../../user-tokens/entities/user-token.entity';
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column({ unique: true, name: 'username' })
   username: string;
 
-  @Column()
-  fullname: string;
+  @Column({ name: 'first_name' })
+  firstName: string;
 
-  @Column({ unique: true })
+  @Column({ name: 'last_name' })
+  lastName: string;
+
+  @Column({ unique: true, name: 'email' })
   email: string;
 
-  @Column()
-  dob: Date;
-
-  @Column()
+  @Column({ name: 'password' })
   password: string;
 
-  @Column({
-    type: 'enum',
-    enum: Gender,
-  })
-  gender: Gender;
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 
-  @Column()
-  created_at: Date;
+  @Column({ default: false, name: 'is_admin' })
+  isAdmin: boolean;
 
-  @Column({ default: false })
-  is_admin: boolean;
-
-  @Column({ default: false })
+  @Column({ default: false, name: 'is_email_verified' })
   isEmailVerified: boolean;
-
-  @Column({ type: 'varchar', nullable: true })
-  verificationToken: string | null;
-
-  @Column({ type: 'timestamp', nullable: true })
-  verificationTokenExpires: Date | null;
-
-  @Column({ type: 'varchar', nullable: true })
-  resetPasswordToken: string | null;
-
-  @Column({ type: 'timestamp', nullable: true })
-  resetPasswordTokenExpires: Date | null;
 
   @OneToMany(() => WorkoutPlan, (workoutPlan) => workoutPlan.user)
   workoutPlans: WorkoutPlan[];
+
+  @OneToMany(() => UserTokens, (token) => token.user)
+  tokens: UserTokens[];
 }

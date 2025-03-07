@@ -6,9 +6,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-
+import { WorkoutExercise } from '../../workout_exercises/entities/workout_exercise.entity';
 export enum WorkoutPlanType {
   STRENGTH = 'strength',
   CARDIO = 'cardio',
@@ -46,6 +47,15 @@ export class WorkoutPlan {
     comment: 'Duration of workout in minutes',
   })
   durationMinutes: number;
+
+  @OneToMany(
+    () => WorkoutExercise,
+    (workoutExercise) => workoutExercise.workoutPlan,
+    {
+      cascade: true,
+    },
+  )
+  workoutExercises: WorkoutExercise[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

@@ -1,10 +1,17 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ConflictException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { handleServiceError } from '../utils/error-handler';
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -13,10 +20,28 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    return handleServiceError(async () => {
-      const user = this.usersRepository.create(createUserDto);
-      return await this.usersRepository.save(user);
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
+
+    const user = this.usersRepository.create({
+      ...createUserDto,
+      password: hashedPassword,
+      isEmailVerified: true, // Force email verification for admin-created users
     });
+
+    try {
+      return await this.usersRepository.save(user);
+    } catch (error) {
+      if (error.code === '23505') {
+        if (error.detail.includes('username')) {
+          throw new ConflictException('Username already exists');
+        }
+        if (error.detail.includes('email')) {
+          throw new ConflictException('Email already exists');
+        }
+      }
+      throw new InternalServerErrorException();
+    }
   }
 
   async findAll(): Promise<User[]> {

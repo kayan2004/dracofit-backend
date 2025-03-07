@@ -11,9 +11,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    configService: ConfigService, // received as parameter
+    configService: ConfigService,
   ) {
-    // Use a static helper to get the secret without referencing this.
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: JwtStrategy.getSecret(configService),
@@ -24,12 +23,29 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return configService.get<string>('JWT_SECRET')!;
   }
 
-  async validate(payload: { username: string }): Promise<User> {
-    const { username } = payload;
-    const user = await this.userRepository.findOneBy({ username });
-    if (!user) {
+  async validate(payload: {
+    sub: number;
+    username: string;
+    isAdmin: boolean;
+  }): Promise<User> {
+    const { sub: id } = payload;
+    const user = await this.userRepository.findOne({
+      where: { id },
+      select: [
+        'id',
+        'username',
+        'email',
+        'isAdmin',
+        'isEmailVerified',
+        'firstName',
+        'lastName',
+      ],
+    });
+
+    if (!user || !user.isEmailVerified) {
       throw new UnauthorizedException();
     }
+
     return user;
   }
 }

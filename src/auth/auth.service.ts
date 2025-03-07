@@ -14,117 +14,128 @@ import { randomBytes } from 'crypto';
 import { EmailService } from '../email/email.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import {
+  UserTokens,
+  TokenType,
+} from '../user-tokens/entities/user-token.entity';
+
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
+    @InjectRepository(User) private userRepository: Repository<User>,
+    @InjectRepository(UserTokens)
+    private userTokensRepository: Repository<UserTokens>,
     private jwtService: JwtService,
     private emailService: EmailService,
   ) {}
 
+  private async createToken(user: User, type: TokenType): Promise<string> {
+    const token = randomBytes(32).toString('hex');
+    const expires = new Date();
+    expires.setHours(
+      expires.getHours() + (type === TokenType.EMAIL_VERIFICATION ? 24 : 1),
+    );
+
+    await this.userTokensRepository.save({
+      user,
+      token,
+      tokenType: type,
+      expiresAt: expires,
+    });
+
+    return token;
+  }
+
   async signUp(signUpDto: SignUpDto): Promise<Omit<User, 'password'>> {
-    const { username, password, fullname, email, dob, gender } = signUpDto;
+    const { username, password, firstName, lastName, email } = signUpDto;
 
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Generate verification token
-    const verificationToken = randomBytes(32).toString('hex');
-    const tokenExpires = new Date();
-    tokenExpires.setHours(tokenExpires.getHours() + 24);
-
     const user = this.userRepository.create({
       username,
       password: hashedPassword,
-      fullname,
+      firstName,
+      lastName,
       email,
-      dob,
-      gender,
-      created_at: new Date(),
-      is_admin: false,
+      isAdmin: false,
       isEmailVerified: false,
-      verificationToken,
-      verificationTokenExpires: tokenExpires,
     });
 
     try {
       const savedUser = await this.userRepository.save(user);
+      const verificationToken = await this.createToken(
+        savedUser,
+        TokenType.EMAIL_VERIFICATION,
+      );
       await this.emailService.sendVerificationEmail(email, verificationToken);
 
       const { password: _, ...result } = savedUser;
       return result;
     } catch (error) {
       if (error.code === '23505') {
-        // PostgreSQL unique violation code
         if (error.detail.includes('username')) {
-          throw new UnauthorizedException('Username already exists');
+          throw new BadRequestException('Username already exists');
         }
         if (error.detail.includes('email')) {
-          throw new UnauthorizedException('Email already exists');
+          throw new BadRequestException('Email already exists');
         }
       }
-      throw new UnauthorizedException('Error creating user');
+      throw new BadRequestException('Error creating user');
     }
   }
 
   async verifyEmail(token: string): Promise<void> {
-    if (!token) {
-      throw new BadRequestException('Verification token is required');
-    }
-
-    const user = await this.userRepository.findOne({
-      where: { verificationToken: token },
+    const userToken = await this.userTokensRepository.findOne({
+      where: {
+        token,
+        tokenType: TokenType.EMAIL_VERIFICATION,
+      },
+      relations: ['user'],
     });
 
-    if (!user) {
-      throw new BadRequestException('Invalid verification token');
+    if (!userToken || userToken.expiresAt < new Date()) {
+      throw new BadRequestException('Invalid or expired token');
     }
 
-    if (!user.verificationTokenExpires) {
-      throw new BadRequestException('Token has no expiration date');
-    }
-
-    const currentTime = new Date();
-    if (user.verificationTokenExpires < currentTime) {
-      throw new BadRequestException('Verification token has expired');
-    }
-
-    user.isEmailVerified = true;
-    user.verificationToken = null;
-    user.verificationTokenExpires = null;
-    await this.userRepository.save(user);
+    userToken.user.isEmailVerified = true;
+    await this.userRepository.save(userToken.user);
+    await this.userTokensRepository.remove(userToken);
   }
 
-  async signIn(loginDto: LoginDto): Promise<{ accessToken: string }> {
+  async signIn(
+    loginDto: LoginDto,
+  ): Promise<{ accessToken: string; user: Omit<User, 'password'> }> {
     const { username, password } = loginDto;
-    const user = await this.userRepository.findOneBy({ username });
+    const user = await this.userRepository.findOne({ where: { username } });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    if (!user.isEmailVerified) {
-      throw new UnauthorizedException('Please verify your email first');
+    if (!user || !user.isEmailVerified) {
+      throw new UnauthorizedException(
+        'Invalid credentials or email not verified',
+      );
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    console.log('Login attempt:', { username, isPasswordValid });
-
-    if (isPasswordValid) {
-      const payload = { username: user.username };
-      const accessToken = this.jwtService.sign(payload);
-      console.log('Token generated:', accessToken);
-      return { accessToken };
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
     }
-    throw new UnauthorizedException('Invalid credentials');
+
+    const payload = {
+      sub: user.id,
+      username: user.username,
+      isAdmin: user.isAdmin,
+    };
+
+    // Remove password from user object
+    const { password: _, ...userWithoutPassword } = user;
+
+    return {
+      accessToken: this.jwtService.sign(payload),
+      user: userWithoutPassword,
+    };
   }
 
   async resendVerificationEmail(email: string): Promise<void> {
-    if (!email) {
-      throw new BadRequestException('Email is required');
-    }
-
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
       throw new BadRequestException('No user found with this email');
@@ -134,14 +145,16 @@ export class AuthService {
       throw new BadRequestException('Email is already verified');
     }
 
-    const verificationToken = randomBytes(32).toString('hex');
-    const tokenExpires = new Date();
-    tokenExpires.setHours(tokenExpires.getHours() + 24);
+    // Remove any existing verification tokens
+    await this.userTokensRepository.delete({
+      user: { id: user.id },
+      tokenType: TokenType.EMAIL_VERIFICATION,
+    });
 
-    user.verificationToken = verificationToken;
-    user.verificationTokenExpires = tokenExpires;
-    await this.userRepository.save(user);
-
+    const verificationToken = await this.createToken(
+      user,
+      TokenType.EMAIL_VERIFICATION,
+    );
     await this.emailService.sendVerificationEmail(email, verificationToken);
   }
 
@@ -150,51 +163,46 @@ export class AuthService {
   ): Promise<{ message: string }> {
     const { email } = forgotPasswordDto;
     const user = await this.userRepository.findOne({ where: { email } });
+
     if (!user) {
       throw new BadRequestException('No user found with this email');
     }
-    // Generate token valid for 1 hour
-    const resetToken = randomBytes(32).toString('hex');
-    const tokenExpires = new Date();
-    tokenExpires.setHours(tokenExpires.getHours() + 1);
 
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordTokenExpires = tokenExpires;
-    await this.userRepository.save(user);
+    // Remove any existing reset tokens
+    await this.userTokensRepository.delete({
+      user: { id: user.id },
+      tokenType: TokenType.PASSWORD_RESET,
+    });
 
-    // Send the reset token via email
+    const resetToken = await this.createToken(user, TokenType.PASSWORD_RESET);
     await this.emailService.sendResetPasswordEmail(email, resetToken);
 
     return { message: 'Reset password email has been sent' };
   }
 
-  async resetPassword(token: string, newPassword: string): Promise<void> {
-    if (!token) {
-      throw new BadRequestException('Reset token is required');
-    }
-
-    const user = await this.userRepository.findOne({
-      where: { resetPasswordToken: token },
+  async resetPassword(
+    token: string,
+    resetPasswordDto: ResetPasswordDto,
+  ): Promise<void> {
+    const userToken = await this.userTokensRepository.findOne({
+      where: {
+        token,
+        tokenType: TokenType.PASSWORD_RESET,
+      },
+      relations: ['user'],
     });
 
-    if (!user) {
-      throw new BadRequestException('Invalid reset token');
-    }
-
-    if (
-      !user.resetPasswordTokenExpires ||
-      user.resetPasswordTokenExpires < new Date()
-    ) {
-      throw new BadRequestException('Reset token has expired');
+    if (!userToken || userToken.expiresAt < new Date()) {
+      throw new BadRequestException('Invalid or expired reset token');
     }
 
     const salt = await bcrypt.genSalt();
-    user.password = await bcrypt.hash(newPassword, salt);
+    userToken.user.password = await bcrypt.hash(
+      resetPasswordDto.newPassword,
+      salt,
+    );
 
-    // Clear reset token fields
-    user.resetPasswordToken = null;
-    user.resetPasswordTokenExpires = null;
-
-    await this.userRepository.save(user);
+    await this.userRepository.save(userToken.user);
+    await this.userTokensRepository.remove(userToken);
   }
 }

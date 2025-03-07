@@ -4,11 +4,7 @@ import {
   MaxLength,
   Matches,
   IsEmail,
-  IsDate,
-  IsEnum,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-import { Gender } from '../../users/entities/user.entity';
 
 export class SignUpDto {
   @IsString()
@@ -26,15 +22,13 @@ export class SignUpDto {
   password: string;
 
   @IsString()
-  fullname: string;
+  @MinLength(2)
+  firstName: string;
+
+  @IsString()
+  @MinLength(2)
+  lastName: string;
 
   @IsEmail({}, { message: 'Please provide a valid email address' })
   email: string;
-
-  @Type(() => Date)
-  @IsDate()
-  dob: Date;
-
-  @IsEnum(Gender)
-  gender: Gender;
 }

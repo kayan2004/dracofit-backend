@@ -9,11 +9,15 @@ import { EmailService } from './email.service';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const logger = new Logger('EmailModule');
-        const emailUser = config.get('EMAIL_USER');
-        const emailPassword = config.get('EMAIL_PASSWORD');
+        const emailUser = config.get<string>('EMAIL_USER');
+        const emailPassword = config.get<string>('EMAIL_PASSWORD');
 
-        logger.log(`EMAIL_USER: ${emailUser}`);
-        logger.log(`EMAIL_PASSWORD: ${emailPassword ? '******' : 'Not Set'}`);
+        if (!emailUser || !emailPassword) {
+          logger.error('Email configuration is missing');
+          throw new Error('Email configuration is incomplete');
+        }
+
+        logger.log('Email configuration loaded successfully');
 
         return {
           transport: {
@@ -24,9 +28,12 @@ import { EmailService } from './email.service';
               user: emailUser,
               pass: emailPassword,
             },
+            tls: {
+              rejectUnauthorized: false,
+            },
           },
           defaults: {
-            from: '"DracoFit" <kayanabdepbaki@gmail.com>',
+            from: `"DracoFit" <${emailUser}>`,
           },
         };
       },

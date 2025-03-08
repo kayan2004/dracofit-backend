@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 import { WorkoutPlan } from '../../workout_plans/entities/workout_plan.entity';
 import { UserTokens } from '../../user-tokens/entities/user-token.entity';
+import { Friendship } from 'src/friendships/entities/friendship.entity';
 
 @Entity('users')
 export class User {
@@ -42,4 +43,10 @@ export class User {
 
   @OneToMany(() => UserTokens, (token) => token.user)
   tokens: UserTokens[];
+
+  @OneToMany(() => Friendship, (friendship) => friendship.user1)
+  sentFriendRequests: Friendship[];
+
+  @OneToMany(() => Friendship, (friendship) => friendship.user2)
+  receivedFriendRequests: Friendship[];
 }

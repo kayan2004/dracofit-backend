@@ -15,6 +15,9 @@ import { WorkoutExercisesModule } from './workout_exercises/workout_exercises.mo
 import { WorkoutExercise } from './workout_exercises/entities/workout_exercise.entity';
 import { UserTokens } from './user-tokens/entities/user-token.entity';
 import { UserTokensModule } from './user-tokens/user-tokens.module';
+import { FriendshipsModule } from './friendships/friendships.module';
+import { Friendship } from './friendships/entities/friendship.entity';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -34,6 +37,7 @@ import { UserTokensModule } from './user-tokens/user-tokens.module';
         WorkoutPlan,
         WorkoutExercise,
         UserTokens,
+        Friendship,
       ], // Add your entities here
       synchronize: true,
     }),
@@ -45,6 +49,7 @@ import { UserTokensModule } from './user-tokens/user-tokens.module';
     UserDetailsModule,
     WorkoutExercisesModule,
     UserTokensModule,
+    FriendshipsModule,
   ],
 })
 export class AppModule {}

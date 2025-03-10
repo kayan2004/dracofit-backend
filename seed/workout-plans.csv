@@ -1,6 +1,0 @@
-name,description,type,durationMinutes,exercises
-"Beginner Full Body","A 45-minute workout focusing on compound movements for overall strength.","strength",45,"Push-ups:3:10:1:60,Bodyweight Squat:3:12:2:60,Plank:3:30:3:45,Mountain climber:3:20:4:45,Ab bicycle:3:15:5:45"
-"Upper Body Strength","A 60-minute session emphasizing chest, back, and shoulder exercises.","strength",60,"Bench Press:4:8:1:90,Dumbbell Bench Press:4:10:2:90,Push-Up Wide:3:12:3:60,Dumbbell Flyes:3:12:4:60,Chest dip:3:10:5:60"
-"Lower Body Power","A workout targeting legs and core with a mix of strength and explosiveness.","strength",50,"Barbell Squat:4:8:1:120,Jump Squat:3:12:2:90,Bodyweight Reverse Lunge:3:12:3:60,Standing Calf Raises:3:15:4:45,Leg Extensions:3:15:5:45"
-"HIIT Cardio","A high-intensity interval training plan for improving cardiovascular endurance.","hiit",30,"Burpee:4:15:1:30,Mountain climber:4:30:2:30,Jump Squat:4:20:3:30,Jumping rope:4:50:4:30,Split Jump:4:20:5:30"
-"Core and Flexibility","A balanced routine focusing on abdominals, stabilizer muscles, and mobility.","flexibility",40,"Plank:3:45:1:45,Ab bicycle:3:20:2:45,Knees tucked crunch:3:15:3:45,Elbow plank:3:40:4:45,Cross-Body Crunch:3:20:5:45"

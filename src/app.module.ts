@@ -17,6 +17,8 @@ import { UserTokens } from './user-tokens/entities/user-token.entity';
 import { UserTokensModule } from './user-tokens/user-tokens.module';
 import { FriendshipsModule } from './friendships/friendships.module';
 import { Friendship } from './friendships/entities/friendship.entity';
+import { ChatbotInteractionsModule } from './chatbot-interactions/chatbot-interactions.module';
+import { ChatbotInteraction } from './chatbot-interactions/entities/chatbot-interaction.entity';
 
 @Module({
   imports: [
@@ -38,6 +40,7 @@ import { Friendship } from './friendships/entities/friendship.entity';
         WorkoutExercise,
         UserTokens,
         Friendship,
+        ChatbotInteraction,
       ], // Add your entities here
       synchronize: true,
     }),
@@ -50,6 +53,7 @@ import { Friendship } from './friendships/entities/friendship.entity';
     WorkoutExercisesModule,
     UserTokensModule,
     FriendshipsModule,
+    ChatbotInteractionsModule,
   ],
 })
 export class AppModule {}

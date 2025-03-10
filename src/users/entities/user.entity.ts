@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 import { WorkoutPlan } from '../../workout_plans/entities/workout_plan.entity';
 import { UserTokens } from '../../user-tokens/entities/user-token.entity';
-import { Friendship } from 'src/friendships/entities/friendship.entity';
+import { Friendship } from '../../friendships/entities/friendship.entity';
 
 @Entity('users')
 export class User {

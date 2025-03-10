@@ -1,7 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
-import { WorkoutPlan, WorkoutPlanType } from '../src/workout_plans/entities/workout_plan.entity';
+import {
+  WorkoutPlan,
+  WorkoutPlanType,
+} from '../src/workout_plans/entities/workout_plan.entity';
 import { WorkoutExercise } from '../src/workout_exercises/entities/workout_exercise.entity';
 import { Exercise } from '../src/exercises/entities/exercise.entity';
 import { User } from '../src/users/entities/user.entity';
@@ -21,43 +24,48 @@ async function seedWorkoutPlans() {
     const userRepo = dataSource.getRepository(User);
 
     console.log('Starting workout plans seed...');
-    console.log('Available workout plan types:', Object.values(WorkoutPlanType));
+    console.log(
+      'Available workout plan types:',
+      Object.values(WorkoutPlanType),
+    );
 
     // Create or find admin user
-    let adminUser = await userRepo.findOne({ 
-      where: { email: 'admin@dracofit.com' } 
+    let adminUser = await userRepo.findOne({
+      where: { username: 'admin' },
     });
 
-    if (!adminUser) {
-      const salt = await bcrypt.genSalt();
-      const hashedPassword = await bcrypt.hash('adminpassword', salt);
-      
-      adminUser = userRepo.create({
-        email: 'admin@dracofit.com',
-        username: 'admin',
-        firstName: 'Admin',
-        lastName: 'User',
-        password: hashedPassword,
-        isAdmin: true,
-        isEmailVerified: true
-      });
-      adminUser = await userRepo.save(adminUser);
-      console.log('Created admin user');
-    }
+    // if (!adminUser) {
+    //   const salt = await bcrypt.genSalt();
+    //   const hashedPassword = await bcrypt.hash('adminpassword', salt);
 
-    const parser = fs.createReadStream(join(__dirname, 'workout-plans.csv')).pipe(
-      parse({
-        columns: true,
-        skip_empty_lines: true,
-      }),
-    );
+    //   adminUser = userRepo.create({
+    //     email: 'admin@dracofit.com',
+    //     username: 'admin',
+    //     firstName: 'Admin',
+    //     lastName: 'User',
+    //     password: hashedPassword,
+    //     isAdmin: true,
+    //     isEmailVerified: true,
+    //   });
+    //   adminUser = await userRepo.save(adminUser);
+    //   console.log('Created admin user');
+    // }
+
+    const parser = fs
+      .createReadStream(join(__dirname, 'workout-plans.csv'))
+      .pipe(
+        parse({
+          columns: true,
+          skip_empty_lines: true,
+        }),
+      );
 
     for await (const row of parser) {
       try {
         console.log('Processing row:', row);
 
         const existingPlan = await workoutPlanRepo.findOne({
-          where: { name: row.name }
+          where: { name: row.name },
         });
 
         if (existingPlan) {
@@ -77,12 +85,12 @@ async function seedWorkoutPlans() {
           description: row.description,
           type: planType as WorkoutPlanType,
           durationMinutes: parseInt(row.durationMinutes),
-          user: adminUser
+          user: adminUser,
         });
 
         console.log('Creating workout plan:', {
           name: workoutPlan.name,
-          type: workoutPlan.type
+          type: workoutPlan.type,
         });
 
         const savedPlan = await workoutPlanRepo.save(workoutPlan);
@@ -92,10 +100,11 @@ async function seedWorkoutPlans() {
         const exercises = row.exercises.split(',');
         for (const exerciseData of exercises) {
           try {
-            const [name, sets, reps, orderIndex, restTimeSeconds] = exerciseData.split(':');
-            
+            const [name, sets, reps, orderIndex, restTimeSeconds] =
+              exerciseData.split(':');
+
             const exercise = await exerciseRepo.findOne({
-              where: { name }
+              where: { name },
             });
 
             if (!exercise) {
@@ -109,7 +118,7 @@ async function seedWorkoutPlans() {
               sets: parseInt(sets),
               reps: parseInt(reps),
               orderIndex: parseInt(orderIndex),
-              restTimeSeconds: parseInt(restTimeSeconds)
+              restTimeSeconds: parseInt(restTimeSeconds),
             });
 
             await workoutExerciseRepo.save(workoutExercise);
@@ -120,7 +129,10 @@ async function seedWorkoutPlans() {
         }
       } catch (error) {
         console.error(`Error processing row:`, row);
-        console.error('Error details:', error.response?.message || error.message);
+        console.error(
+          'Error details:',
+          error.response?.message || error.message,
+        );
       }
     }
 

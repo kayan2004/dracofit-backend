@@ -9,8 +9,10 @@ import { EmailService } from './email.service';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const logger = new Logger('EmailModule');
-        const emailUser = config.get<string>('EMAIL_USER');
-        const emailPassword = config.get<string>('EMAIL_PASSWORD');
+        // Change EMAIL_USER to MAIL_USER
+        const emailUser = config.get<string>('MAIL_USER');
+        // Change EMAIL_PASSWORD to MAIL_PASSWORD
+        const emailPassword = config.get<string>('MAIL_PASSWORD');
 
         if (!emailUser || !emailPassword) {
           logger.error('Email configuration is missing');
@@ -21,8 +23,8 @@ import { EmailService } from './email.service';
 
         return {
           transport: {
-            host: 'smtp.gmail.com',
-            port: 587,
+            host: config.get('MAIL_HOST'),
+            port: config.get('MAIL_PORT'),
             secure: false,
             auth: {
               user: emailUser,

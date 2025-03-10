@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { User } from '../users/entities/user.entity';
 
 @Injectable()
@@ -14,7 +9,6 @@ export class AdminGuard implements CanActivate {
     if (!user || !user.isAdmin) {
       throw new UnauthorizedException('Admin access required');
     }
-
     return true;
   }
 }

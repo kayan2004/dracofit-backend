@@ -7,14 +7,14 @@ import {
   Param,
   Delete,
   Query,
+  UseGuards
 } from '@nestjs/common';
 import { Exercise } from './entities/exercise.entity';
 import { ExercisesService } from './exercises.service';
 import { CreateExerciseDto } from './dto/create-exercise.dto';
 import { UpdateExerciseDto } from './dto/update-exercise.dto';
-import { UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { AdminGuard } from 'src/auth/admin.guard';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard'; // Changed from 'src/auth/jwt-auth.guard'
+import { AdminGuard } from '../auth/admin.guard';
 import { ValidationPipe } from '@nestjs/common';
 import { FilterExerciseDto } from './dto/filter-exercise.dto';
 

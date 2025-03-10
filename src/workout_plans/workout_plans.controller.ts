@@ -14,7 +14,7 @@ import { WorkoutPlansService } from './workout_plans.service';
 import { CreateWorkoutPlanDto } from './dto/create-workout_plan.dto';
 import { UpdateWorkoutPlanDto } from './dto/update-workout_plan.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { AdminGuard } from 'src/auth/admin.guard';
+import { AdminGuard } from '../auth/admin.guard';
 
 @UseGuards(JwtAuthGuard)
 @Controller('workout-plans')

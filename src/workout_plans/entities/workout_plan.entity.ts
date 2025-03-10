@@ -15,7 +15,7 @@ export enum WorkoutPlanType {
   CARDIO = 'cardio',
   HIIT = 'hiit',
   FLEXIBILITY = 'flexibility',
-  HYBRID = 'hybrid',
+  HYBRID = 'hybrid'
 }
 
 @Entity('workout_plans')

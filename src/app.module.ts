@@ -34,10 +34,10 @@ import { ChatbotInteraction } from './chatbot-interactions/entities/chatbot-inte
       database: 'dracofit', // Change this to your database name
       entities: [
         User,
-        UserDetail,
-        Exercise,
         WorkoutPlan,
-        WorkoutExercise,
+        WorkoutExercise,  // Make sure this is included
+        Exercise,
+        UserDetail,
         UserTokens,
         Friendship,
         ChatbotInteraction,

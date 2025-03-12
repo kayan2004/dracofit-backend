@@ -5,33 +5,61 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { handleServiceError } from '../utils/error-handler';
+import { createDefaultWorkoutsForUser } from '../../seed/workout.seed';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private dataSource: DataSource
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
-
-    const user = this.usersRepository.create({
-      ...createUserDto,
-      password: hashedPassword,
-      isEmailVerified: true, // Force email verification for admin-created users
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
     try {
-      return await this.usersRepository.save(user);
+      const salt = await bcrypt.genSalt();
+      const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
+
+      const user = this.usersRepository.create({
+        ...createUserDto,
+        password: hashedPassword,
+        isEmailVerified: true,
+      });
+
+      // Save the user first
+      const savedUser = await queryRunner.manager.save(user);
+      console.log('User saved:', savedUser);
+
+      // Check if exercises exist in the database
+      const exerciseCount = await queryRunner.manager.query('SELECT COUNT(*) FROM exercises');
+      const count = parseInt(exerciseCount[0].count);
+      console.log('Exercise count:', count);
+      
+      if (count > 0) {
+        // Create default workouts for the new user
+        await createDefaultWorkoutsForUser(savedUser.id, this.dataSource);
+        console.log('Default workouts created for user:', savedUser.id);
+      } else {
+        console.log('No exercises found. Skipping workout creation.');
+      }
+
+      await queryRunner.commitTransaction();
+      return savedUser;
+
     } catch (error) {
+      await queryRunner.rollbackTransaction();
+      console.error('Error during user creation:', error);
+      
       if (error.code === '23505') {
         if (error.detail.includes('username')) {
           throw new ConflictException('Username already exists');
@@ -40,7 +68,9 @@ export class UsersService {
           throw new ConflictException('Email already exists');
         }
       }
-      throw new InternalServerErrorException();
+      throw new InternalServerErrorException('Error creating user with default workouts');
+    } finally {
+      await queryRunner.release();
     }
   }
 

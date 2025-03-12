@@ -31,6 +31,9 @@ export class WorkoutExercise {
   @Column()
   reps: number;
 
+  @Column({ nullable: true })
+  duration: number;
+
   @Column({ name: 'order_index' })
   orderIndex: number;
 

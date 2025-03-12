@@ -62,4 +62,10 @@ export class WorkoutPlan {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @Column({ name: 'is_public', default: false })
+  isPublic: boolean;
+
+  @Column({ name: 'status', default: 'ACTIVE' })
+  status: string;
 }

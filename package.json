@@ -8,7 +8,8 @@
   "scripts": {
     "seed:admin": "ts-node -r tsconfig-paths/register seed/admin.seed.ts",
     "seed:exercises": "ts-node -r tsconfig-paths/register seed/exercises.seed.ts",
-    "seed:workouts": "ts-node seed/workout-plans.seed.ts",
+    "seed:workouts": "ts-node -r tsconfig-paths/register seed/workout.seed.ts",
+    "seed": "npm run seed:admin && npm run seed:exercises && npm run seed:workouts",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
@@ -20,7 +21,10 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:seed:workouts": "jest --config ./test/jest-e2e.json test/seeds/workout.seed.spec.ts --runInBand --detectOpenHandles",
+    "test:seed": "npm run test:seed:workouts",
+    "verify:seed": "ts-node scripts/verify-seed.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",

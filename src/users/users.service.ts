@@ -18,7 +18,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-    private dataSource: DataSource
+    private dataSource: DataSource,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
@@ -41,10 +41,12 @@ export class UsersService {
       console.log('User saved:', savedUser);
 
       // Check if exercises exist in the database
-      const exerciseCount = await queryRunner.manager.query('SELECT COUNT(*) FROM exercises');
+      const exerciseCount = await queryRunner.manager.query(
+        'SELECT COUNT(*) FROM exercises',
+      );
       const count = parseInt(exerciseCount[0].count);
       console.log('Exercise count:', count);
-      
+
       if (count > 0) {
         // Create default workouts for the new user
         await createDefaultWorkoutsForUser(savedUser.id, this.dataSource);
@@ -55,11 +57,10 @@ export class UsersService {
 
       await queryRunner.commitTransaction();
       return savedUser;
-
     } catch (error) {
       await queryRunner.rollbackTransaction();
       console.error('Error during user creation:', error);
-      
+
       if (error.code === '23505') {
         if (error.detail.includes('username')) {
           throw new ConflictException('Username already exists');
@@ -68,7 +69,9 @@ export class UsersService {
           throw new ConflictException('Email already exists');
         }
       }
-      throw new InternalServerErrorException('Error creating user with default workouts');
+      throw new InternalServerErrorException(
+        'Error creating user with default workouts',
+      );
     } finally {
       await queryRunner.release();
     }
@@ -102,11 +105,25 @@ export class UsersService {
   }
 
   async remove(id: number): Promise<void> {
-    return handleServiceError(async () => {
+    try {
       const result = await this.usersRepository.delete(id);
+      console.log('Delete result:', result);
+
       if (result.affected === 0) {
         throw new BadRequestException(`User with id ${id} not found`);
       }
-    });
+
+      return;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        'An error occurred while deleting the user',
+      );
+    }
   }
 }

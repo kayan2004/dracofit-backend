@@ -83,6 +83,16 @@ export class ExercisesService {
     const queryBuilder =
       this.exercisesRepository.createQueryBuilder('exercise');
 
+    // Add search functionality
+    if (filters.searchTerm) {
+      queryBuilder.andWhere(
+        '(LOWER(exercise.name) LIKE LOWER(:searchTerm) OR LOWER(exercise.description) LIKE LOWER(:searchTerm))',
+        {
+          searchTerm: `%${filters.searchTerm}%`,
+        },
+      );
+    }
+
     if (filters.difficulty) {
       queryBuilder.andWhere('exercise.difficulty = :difficulty', {
         difficulty: filters.difficulty,
@@ -117,17 +127,18 @@ export class ExercisesService {
 
     queryBuilder.skip(skip).take(limit);
 
+    // Add ordering for consistent results
+    queryBuilder.orderBy('exercise.name', 'ASC');
+
     const [exercises, total] = await queryBuilder.getManyAndCount();
 
-    if (exercises.length === 0) {
-      throw new NotFoundException('No exercises found matching the criteria');
-    }
-
+    // Remove the exception for empty results as it's valid to have no search matches
+    // Instead, just return an empty array with the correct metadata
     return {
       exercises,
       total,
       page,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limit) || 1, // Ensure at least 1 page even for empty results
     };
   }
 

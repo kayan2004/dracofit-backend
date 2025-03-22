@@ -38,7 +38,10 @@ export class User {
   @Column({ default: false, name: 'is_email_verified' })
   isEmailVerified: boolean;
 
-  @OneToMany(() => WorkoutPlan, (workoutPlan) => workoutPlan.user)
+  @OneToMany(() => WorkoutPlan, (workoutPlan) => workoutPlan.user, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
   workoutPlans: WorkoutPlan[];
 
   @OneToMany(() => UserTokens, (token) => token.user)

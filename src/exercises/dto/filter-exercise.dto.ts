@@ -35,4 +35,8 @@ export class FilterExerciseDto {
   @IsNumber()
   @Min(1)
   limit?: number = 10;
+
+  @IsOptional()
+  @IsString()
+  searchTerm?: string;
 }

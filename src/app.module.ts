@@ -23,6 +23,8 @@ import { WorkoutLogsModule } from './workout-logs/workout-logs.module';
 import { WorkoutLog } from './workout-logs/entities/workout-log.entity';
 import { ExerciseLogsModule } from './exercise-logs/exercise-logs.module';
 import { ExerciseLog } from './exercise-logs/entities/exercise-log.entity';
+import { UserPetsModule } from './user-pets/user-pets.module';
+import { Pet } from './user-pets/entities/user-pet.entity';
 
 @Module({
   imports: [
@@ -39,7 +41,7 @@ import { ExerciseLog } from './exercise-logs/entities/exercise-log.entity';
       entities: [
         User,
         WorkoutPlan,
-        WorkoutExercise,  // Make sure this is included
+        WorkoutExercise, // Make sure this is included
         Exercise,
         UserDetail,
         UserTokens,
@@ -47,6 +49,7 @@ import { ExerciseLog } from './exercise-logs/entities/exercise-log.entity';
         ChatbotInteraction,
         WorkoutLog,
         ExerciseLog,
+        Pet,
       ], // Add your entities here
       synchronize: true,
     }),
@@ -62,6 +65,7 @@ import { ExerciseLog } from './exercise-logs/entities/exercise-log.entity';
     ChatbotInteractionsModule,
     WorkoutLogsModule,
     ExerciseLogsModule,
+    UserPetsModule,
   ],
 })
 export class AppModule {}

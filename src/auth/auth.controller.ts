@@ -6,6 +6,7 @@ import {
   Get,
   Query,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -13,12 +14,13 @@ import { SignUpDto } from './dto/signup.dto';
 import { User } from '../users/entities/user.entity';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-  @Post('/signup')
+  @Post('/register')
   async signUp(
     @Body(ValidationPipe) signUpDto: SignUpDto,
   ): Promise<{ message: string }> {
@@ -29,7 +31,7 @@ export class AuthController {
     };
   }
 
-  @Post('/signin')
+  @Post('/login')
   async signIn(
     @Body(ValidationPipe) loginDto: LoginDto,
   ): Promise<{ accessToken: string; user: Omit<User, 'password'> }> {

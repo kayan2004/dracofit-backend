@@ -4,12 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Friendship, FriendshipStatus } from './entities/friendship.entity';
+import { Repository, In } from 'typeorm';
+import { Friendship, FriendshipStatus } from './entities/friendship.entity'; // Removed FriendAction from here
 import { CreateFriendshipDto } from './dto/create-friendship.dto';
 import { UpdateFriendshipDto } from './dto/update-friendship.dto';
 import { User } from '../users/entities/user.entity';
 import { FriendshipFilter } from './dto/friendship-filter.dto';
+import { FriendAction } from '../friend_actions/friend_action.entity'; // Correct import
+
 @Injectable()
 export class FriendshipsService {
   constructor(
@@ -17,6 +19,8 @@ export class FriendshipsService {
     private friendshipRepository: Repository<Friendship>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(FriendAction)
+    private friendActionRepository: Repository<FriendAction>, // Correct repository
   ) {}
 
   async create(
@@ -165,5 +169,26 @@ export class FriendshipsService {
           relations: ['user1', 'user2'],
         });
     }
+  }
+
+  async logFriendAction(userId: number, action: FriendActionType) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+  
+    const friendAction = this.friendActionRepository.create({
+      user,
+      action,
+    });
+  
+    return this.friendActionRepository.save(friendAction);
+  }
+
+  async getFriendActions(userId: number) {
+    return this.friendActionRepository.find({
+      where: { user: { id: userId } },
+      order: { createdAt: 'DESC' },
+    });
   }
 }

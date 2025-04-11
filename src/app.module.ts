@@ -25,6 +25,7 @@ import { ExerciseLogsModule } from './exercise-logs/exercise-logs.module';
 import { ExerciseLog } from './exercise-logs/entities/exercise-log.entity';
 import { UserPetsModule } from './user-pets/user-pets.module';
 import { Pet } from './user-pets/entities/user-pet.entity';
+import { FriendActionModule } from './friend_actions/friend_action.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { Pet } from './user-pets/entities/user-pet.entity';
     WorkoutLogsModule,
     ExerciseLogsModule,
     UserPetsModule,
+    FriendActionModule,
   ],
 })
 export class AppModule {}

@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { WorkoutLog, WorkoutStatus } from './entities/workout-log.entity';
 import { CreateWorkoutLogDto } from './dto/create-workout-log.dto';
 import { UpdateWorkoutLogDto } from './dto/update-workout-log.dto';
 import { WorkoutPlansService } from '../workout_plans/workout_plans.service';
+import { FriendshipsService } from '../friendships/friendships.service';
 
 @Injectable()
 export class WorkoutLogsService {
@@ -12,6 +13,7 @@ export class WorkoutLogsService {
     @InjectRepository(WorkoutLog)
     private workoutLogRepository: Repository<WorkoutLog>,
     private workoutPlansService: WorkoutPlansService,
+    private friendshipsService: FriendshipsService, // Injected FriendshipsService
   ) {}
 
   async logWorkoutCompletion(
@@ -214,5 +216,17 @@ export class WorkoutLogsService {
     }
 
     return streak;
+  }
+
+  async getFriendsWorkouts(userId: number) {
+    // Fetch the user's friends
+    const friends = await this.friendshipsService.getFriends(userId);
+
+    // Get workouts of friends
+    const friendIds = friends.map(friend => friend.id);
+    return this.workoutLogRepository.find({
+      where: { user: { id: In(friendIds) } }, // Changed 'userId' to 'user'
+      relations: ['user'],
+    });
   }
 }

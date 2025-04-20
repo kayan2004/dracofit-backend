@@ -40,11 +40,6 @@ export class WorkoutLogsController {
     return this.workoutLogsService.getStats(req.user.id);
   }
 
-  @Get('friends-workouts')
-  getFriendsWorkouts(@Request() req) {
-    return this.workoutLogsService.getFriendsWorkouts(req.user.id);
-  }
-
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
     return this.workoutLogsService.findOne(+id, req.user.id);

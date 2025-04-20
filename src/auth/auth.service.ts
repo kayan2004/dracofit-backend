@@ -205,4 +205,19 @@ export class AuthService {
     await this.userRepository.save(userToken.user);
     await this.userTokensRepository.remove(userToken);
   }
+
+  async logout(userId: number): Promise<void> {
+    // Find the user
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Remove any existing auth tokens for this user
+    await this.userTokensRepository.delete({
+      user: { id: userId },
+      tokenType: TokenType.AUTH_TOKEN,
+    });
+  }
 }

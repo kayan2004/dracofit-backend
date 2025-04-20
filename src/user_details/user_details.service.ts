@@ -19,22 +19,34 @@ export class UserDetailsService {
   ) {}
 
   async create(userId: number, createUserDetailDto: CreateUserDetailDto) {
-    const user = await this.usersService.findOne(userId);
+    try {
+      console.log('Creating user details for user ID:', userId);
+      const user = await this.usersService.findOne(userId);
+      console.log('Found user:', user.id);
 
-    const existingDetails = await this.userDetailsRepository.findOne({
-      where: { user: { id: userId } },
-    });
+      // Check if user details already exist
+      const existingDetails = await this.userDetailsRepository.findOne({
+        where: { user: { id: userId } },
+      });
 
-    if (existingDetails) {
-      throw new BadRequestException('User details already exist');
+      if (existingDetails) {
+        console.log('User details already exist, updating instead');
+        // Update existing details instead of throwing an error
+        Object.assign(existingDetails, createUserDetailDto);
+        return this.userDetailsRepository.save(existingDetails);
+      }
+
+      console.log('Creating new user details');
+      const userDetail = this.userDetailsRepository.create({
+        ...createUserDetailDto,
+        user,
+      });
+
+      return this.userDetailsRepository.save(userDetail);
+    } catch (error) {
+      console.error('Error in create user details:', error);
+      throw error;
     }
-
-    const userDetail = this.userDetailsRepository.create({
-      ...createUserDetailDto,
-      user,
-    });
-
-    return this.userDetailsRepository.save(userDetail);
   }
 
   async findOne(userId: number) {

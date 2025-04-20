@@ -25,6 +25,11 @@ import { ExerciseLogsModule } from './exercise-logs/exercise-logs.module';
 import { ExerciseLog } from './exercise-logs/entities/exercise-log.entity';
 import { UserPetsModule } from './user-pets/user-pets.module';
 import { Pet } from './user-pets/entities/user-pet.entity';
+// Import the schedule models
+import { UserSchedule } from './user-schedule/entities/user-schedule.entity';
+import { UserScheduleEntry } from './user-schedule/entities/user-schedule-entry.entity';
+// Import the schedule module
+import { UserScheduleModule } from './user-schedule/user-schedule.module';
 
 @Module({
   imports: [
@@ -50,6 +55,8 @@ import { Pet } from './user-pets/entities/user-pet.entity';
         WorkoutLog,
         ExerciseLog,
         Pet,
+        UserSchedule, // Add the UserSchedule entity
+        UserScheduleEntry, // Add the UserScheduleEntry entity
       ], // Add your entities here
       synchronize: true,
     }),
@@ -66,6 +73,7 @@ import { Pet } from './user-pets/entities/user-pet.entity';
     WorkoutLogsModule,
     ExerciseLogsModule,
     UserPetsModule,
+    UserScheduleModule, // Add the UserScheduleModule
   ],
 })
 export class AppModule {}

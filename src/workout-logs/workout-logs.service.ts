@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { WorkoutLog, WorkoutStatus } from './entities/workout-log.entity';
+import { WorkoutLog } from './entities/workout-log.entity';
 import { CreateWorkoutLogDto } from './dto/create-workout-log.dto';
 import { UpdateWorkoutLogDto } from './dto/update-workout-log.dto';
 import { WorkoutPlansService } from '../workout_plans/workout_plans.service';
@@ -11,68 +11,97 @@ export class WorkoutLogsService {
   constructor(
     @InjectRepository(WorkoutLog)
     private workoutLogRepository: Repository<WorkoutLog>,
-    private workoutPlansService: WorkoutPlansService,
+    private readonly workoutPlansService: WorkoutPlansService,
   ) {}
 
-  async logWorkoutCompletion(
-    userId: number,
-    createWorkoutLogDto: CreateWorkoutLogDto,
-  ): Promise<WorkoutLog> {
-    // Get the workout plan
+  /**
+   * Create a new workout log (called when starting a workout)
+   */
+  async create(userId: number, createWorkoutLogDto: CreateWorkoutLogDto) {
+    // Get the workout plan to associate
     const workoutPlan = await this.workoutPlansService.findOne(
       createWorkoutLogDto.workoutPlanId,
       userId,
     );
 
-    // Calculate timestamps
-    const now = new Date();
-    const startTime = new Date(now);
-
-    // If duration provided, calculate startTime based on duration
-    if (createWorkoutLogDto.durationMinutes) {
-      startTime.setMinutes(
-        startTime.getMinutes() - createWorkoutLogDto.durationMinutes,
-      );
-    } else {
-      // Default to workout plan duration if available
-      startTime.setMinutes(
-        startTime.getMinutes() - (workoutPlan.durationMinutes || 30),
+    if (!workoutPlan) {
+      throw new NotFoundException(
+        `Workout plan with ID ${createWorkoutLogDto.workoutPlanId} not found or not accessible`,
       );
     }
 
-    // Calculate XP based on duration (1XP per minute)
-    const durationMinutes =
-      createWorkoutLogDto.durationMinutes || workoutPlan.durationMinutes || 30;
-    const xpEarned = Math.round(durationMinutes);
+    const now = new Date();
 
-    // Create the workout log
+    // Create the workout log with startTime and endTime set to now
     const workoutLog = this.workoutLogRepository.create({
       user: { id: userId },
       workoutPlan,
-      startTime,
+      startTime: now,
       endTime: now,
-      status: createWorkoutLogDto.status || WorkoutStatus.COMPLETED,
-      xpEarned,
+      // xpEarned: 0, // Temporarily removed
     });
 
     return this.workoutLogRepository.save(workoutLog);
   }
 
-  async findAll(userId: number, status?: WorkoutStatus): Promise<WorkoutLog[]> {
-    const query = this.workoutLogRepository
-      .createQueryBuilder('log')
-      .leftJoinAndSelect('log.workoutPlan', 'workoutPlan')
-      .where('log.user_id = :userId', { userId })
-      .orderBy('log.created_at', 'DESC');
+  /**
+   * Log a completed workout (potentially for manual logging or a different flow)
+   * Assumes duration is provided.
+   */
+  async logCompletedWorkout(
+    userId: number,
+    createWorkoutLogDto: CreateWorkoutLogDto,
+  ) {
+    const workoutPlan = await this.workoutPlansService.findOne(
+      createWorkoutLogDto.workoutPlanId,
+      userId,
+    );
 
-    if (status) {
-      query.andWhere('log.status = :status', { status });
+    if (!workoutPlan) {
+      throw new NotFoundException(
+        `Workout plan with ID ${createWorkoutLogDto.workoutPlanId} not found`,
+      );
     }
 
-    return query.getMany();
+    // Use nullish coalescing operator to default to 0 if undefined
+    const duration = createWorkoutLogDto.durationMinutes ?? 0;
+
+    // Calculate startTime based on the provided duration (in minutes)
+    const endTime = new Date(); // Log completion time is now
+    const startTime = new Date(endTime);
+    // Use setMinutes since the duration is in minutes
+    startTime.setMinutes(startTime.getMinutes() - duration);
+
+    const workoutLog = this.workoutLogRepository.create({
+      user: { id: userId },
+      workoutPlan,
+      startTime,
+      endTime, // Set endTime to now
+      // Do NOT set durationMinutes here - it's a virtual property
+      // xpEarned: this.calculateXP( // Temporarily removed
+      //   duration,
+      //   workoutPlan,
+      // ),
+    });
+
+    return this.workoutLogRepository.save(workoutLog);
   }
 
-  async findOne(id: number, userId: number): Promise<WorkoutLog> {
+  /**
+   * Get all workout logs for a user
+   */
+  async findAll(userId: number) {
+    return this.workoutLogRepository.find({
+      where: { user: { id: userId } },
+      relations: ['workoutPlan'],
+      order: { startTime: 'DESC' },
+    });
+  }
+
+  /**
+   * Get a specific workout log
+   */
+  async findOne(id: number, userId: number) {
     const workoutLog = await this.workoutLogRepository.findOne({
       where: { id, user: { id: userId } },
       relations: ['workoutPlan'],
@@ -85,134 +114,127 @@ export class WorkoutLogsService {
     return workoutLog;
   }
 
+  /**
+   * Update a workout log (used for completion)
+   */
   async update(
     id: number,
     userId: number,
     updateWorkoutLogDto: UpdateWorkoutLogDto,
-  ): Promise<WorkoutLog> {
+  ) {
     const workoutLog = await this.findOne(id, userId);
 
-    // Handle duration update if present
-    if (updateWorkoutLogDto.durationMinutes) {
-      // Recalculate startTime based on new duration
-      const startTime = new Date(workoutLog.endTime || new Date());
+    // let xpNeedsRecalculation = false; // Temporarily removed
+
+    if (updateWorkoutLogDto.durationMinutes !== undefined) {
+      const endTime = updateWorkoutLogDto.endTime
+        ? new Date(updateWorkoutLogDto.endTime)
+        : workoutLog.endTime;
+
+      const startTime = new Date(endTime);
       startTime.setMinutes(
         startTime.getMinutes() - updateWorkoutLogDto.durationMinutes,
       );
+
       workoutLog.startTime = startTime;
-
-      // Update XP based on new duration
-      workoutLog.xpEarned = Math.round(updateWorkoutLogDto.durationMinutes);
+      if (updateWorkoutLogDto.endTime) {
+        workoutLog.endTime = new Date(updateWorkoutLogDto.endTime);
+      } else {
+        workoutLog.endTime = new Date();
+      }
+      // xpNeedsRecalculation = true; // Temporarily removed
+    } else {
+      if (updateWorkoutLogDto.startTime !== undefined) {
+        workoutLog.startTime = new Date(updateWorkoutLogDto.startTime);
+        // xpNeedsRecalculation = true; // Temporarily removed
+      }
+      if (updateWorkoutLogDto.endTime !== undefined) {
+        workoutLog.endTime = new Date(updateWorkoutLogDto.endTime);
+        // xpNeedsRecalculation = true; // Temporarily removed
+      }
     }
 
-    // Update status if provided
-    if (updateWorkoutLogDto.status) {
-      workoutLog.status = updateWorkoutLogDto.status;
-    }
+    // Temporarily removed XP calculation logic
+    // if (xpNeedsRecalculation && workoutLog.workoutPlan) {
+    //   const calculatedDuration = workoutLog.durationMinutes;
+    //   workoutLog.xpEarned = this.calculateXP(
+    //     calculatedDuration,
+    //     workoutLog.workoutPlan,
+    //   );
+    // } else if (updateWorkoutLogDto.xpEarned !== undefined) {
+    //   workoutLog.xpEarned = updateWorkoutLogDto.xpEarned;
+    // }
 
     return this.workoutLogRepository.save(workoutLog);
   }
 
-  async remove(id: number, userId: number): Promise<void> {
+  /**
+   * Delete a workout log
+   */
+  async remove(id: number, userId: number) {
     const workoutLog = await this.findOne(id, userId);
-    await this.workoutLogRepository.remove(workoutLog);
+    return this.workoutLogRepository.remove(workoutLog);
   }
 
-  async getStats(userId: number): Promise<any> {
-    // Get total workouts
-    const totalWorkouts = await this.workoutLogRepository.count({
-      where: {
-        user: { id: userId },
-        status: WorkoutStatus.COMPLETED,
-      },
+  /**
+   * Get workout statistics for a user
+   */
+  async getStats(userId: number) {
+    const logs = await this.workoutLogRepository.find({
+      where: { user: { id: userId } },
+      relations: ['workoutPlan'],
     });
 
-    // Get total XP
-    const xpResult = await this.workoutLogRepository
-      .createQueryBuilder('log')
-      .select('SUM(log.xp_earned)', 'totalXp')
-      .where('log.user_id = :userId', { userId })
-      .andWhere('log.status = :status', { status: WorkoutStatus.COMPLETED })
-      .getRawOne();
+    const totalWorkouts = logs.length;
 
-    // Get total duration
-    const durationResult = await this.workoutLogRepository
-      .createQueryBuilder('log')
-      .select(
-        'SUM(EXTRACT(EPOCH FROM (log.end_time - log.start_time)) / 60)',
-        'totalMinutes',
-      )
-      .where('log.user_id = :userId', { userId })
-      .andWhere('log.status = :status', { status: WorkoutStatus.COMPLETED })
-      .getRawOne();
+    const totalDuration = logs.reduce(
+      (sum, log) => sum + log.durationMinutes, // Use virtual getter
+      0,
+    );
 
-    // Get streak (consecutive days with workouts)
-    // This is a simplified version - a real streak calculation would be more complex
-    const streak = await this.calculateStreak(userId);
+    // const totalXP = logs.reduce((sum, log) => sum + log.xpEarned, 0); // Temporarily removed
+
+    const workoutsByType = {};
+    logs.forEach((log) => {
+      if (log.workoutPlan?.type) {
+        workoutsByType[log.workoutPlan.type] =
+          (workoutsByType[log.workoutPlan.type] || 0) + 1;
+      }
+    });
 
     return {
       totalWorkouts,
-      totalXp: parseInt(xpResult?.totalXp || '0'),
-      totalMinutes: Math.round(parseFloat(durationResult?.totalMinutes || '0')),
-      streak,
+      totalDurationMinutes: totalDuration, // Already in minutes
+      // totalXP, // Temporarily removed
+      workoutsByType,
+      recentWorkouts: logs.slice(0, 5),
     };
   }
 
-  private async calculateStreak(userId: number): Promise<number> {
-    const logs = await this.workoutLogRepository
-      .createQueryBuilder('log')
-      .select('DATE(log.created_at)', 'workout_date')
-      .where('log.user_id = :userId', { userId })
-      .andWhere('log.status = :status', { status: WorkoutStatus.COMPLETED })
-      .groupBy('DATE(log.created_at)')
-      .orderBy('DATE(log.created_at)', 'DESC')
-      .getRawMany();
+  /**
+   * Calculate XP for completing a workout
+   * @private
+   */
+  // Temporarily removed calculateXP method
+  // private calculateXP(durationMinutes: number, workoutPlan: any): number {
+  //   const baseXP = 50;
+  //   const minutesXP = Math.max(0, Math.floor(durationMinutes)) * 10;
 
-    let streak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  //   let difficultyMultiplier = 1;
+  //   switch (workoutPlan.difficulty) {
+  //     case 'beginner':
+  //       difficultyMultiplier = 1;
+  //       break;
+  //     case 'intermediate':
+  //       difficultyMultiplier = 1.2;
+  //       break;
+  //     case 'advanced':
+  //       difficultyMultiplier = 1.5;
+  //       break;
+  //     default:
+  //       difficultyMultiplier = 1;
+  //   }
 
-    // Check if user worked out today
-    const todayFormatted = today.toISOString().split('T')[0];
-    const hasWorkoutToday = logs.some(
-      (log) => log.workout_date === todayFormatted,
-    );
-
-    if (!hasWorkoutToday) {
-      // Check if user worked out yesterday to continue the streak
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayFormatted = yesterday.toISOString().split('T')[0];
-      const hasWorkoutYesterday = logs.some(
-        (log) => log.workout_date === yesterdayFormatted,
-      );
-
-      if (!hasWorkoutYesterday) {
-        return 0; // Streak broken
-      }
-    }
-
-    // Count consecutive days
-    for (let i = 0; i < logs.length; i++) {
-      const currentDate = new Date(logs[i].workout_date);
-
-      if (i === 0) {
-        streak = 1;
-        continue;
-      }
-
-      const prevDate = new Date(logs[i - 1].workout_date);
-      const dayDiff = Math.floor(
-        (prevDate.getTime() - currentDate.getTime()) / (1000 * 3600 * 24),
-      );
-
-      if (dayDiff === 1) {
-        streak++;
-      } else {
-        break;
-      }
-    }
-
-    return streak;
-  }
+  //   return Math.round((baseXP + minutesXP) * difficultyMultiplier);
+  // }
 }

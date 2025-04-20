@@ -23,6 +23,7 @@ export class UserDetailsController {
 
   @Post()
   create(@Request() req, @Body() createUserDetailDto: CreateUserDetailDto) {
+    console.log('User object from request:', req.user);
     return this.userDetailsService.create(req.user.id, createUserDetailDto);
   }
 

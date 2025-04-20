@@ -11,6 +11,7 @@ import { User } from '../../users/entities/user.entity';
 export enum TokenType {
   PASSWORD_RESET = 'password_reset',
   EMAIL_VERIFICATION = 'email_verification',
+  AUTH_TOKEN = 'auth_token',
 }
 
 @Entity('user_tokens')

@@ -9,13 +9,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { WorkoutPlan } from '../../workout_plans/entities/workout_plan.entity';
-import { Exclude, Transform } from 'class-transformer';
-
-export enum WorkoutStatus {
-  COMPLETED = 'completed',
-  ABANDONED = 'abandoned',
-  PAUSED = 'paused',
-}
+import { Transform } from 'class-transformer';
 
 @Entity('workout_logs')
 export class WorkoutLog {
@@ -41,20 +35,19 @@ export class WorkoutLog {
   @Index()
   startTime: Date;
 
-  @Column({ name: 'end_time', type: 'timestamp', nullable: true })
+  @Column({ name: 'end_time', type: 'timestamp' })
   endTime: Date;
-
-  @Column({
-    type: 'enum',
-    enum: WorkoutStatus,
-    default: WorkoutStatus.PAUSED,
-  })
-  @Index()
-  status: WorkoutStatus;
 
   @Column({ name: 'xp_earned', default: 0 })
   xpEarned: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
+  // Add a virtual getter for duration
+  get durationMinutes(): number {
+    if (!this.startTime || !this.endTime) return 0;
+    const durationMs = this.endTime.getTime() - this.startTime.getTime();
+    return Math.round(durationMs / (1000 * 60)); // Convert ms to minutes
+  }
 }

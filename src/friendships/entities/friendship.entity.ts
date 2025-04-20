@@ -36,3 +36,18 @@ export class Friendship {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
+
+@Entity('friend_actions')
+export class FriendAction {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @ManyToOne(() => User, (user) => user.sentFriendRequests)
+  user: User;
+
+  @Column()
+  action: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+}

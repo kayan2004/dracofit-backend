@@ -13,6 +13,7 @@ import { AdminGuard } from '../auth/admin.guard';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { User } from './entities/user.entity';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -32,6 +33,11 @@ export class UsersController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(+id);
+  }
+
+  @Get('username/:username')
+  async findByUsername(@Param('username') username: string): Promise<User> {
+    return this.usersService.findByUsername(username);
   }
 
   @Patch(':id')

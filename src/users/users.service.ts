@@ -93,6 +93,16 @@ export class UsersService {
     });
   }
 
+  async findByUsername(username: string): Promise<User> {
+    return handleServiceError(async () => {
+      const user = await this.usersRepository.findOne({ where: { username } });
+      if (!user) {
+        throw new BadRequestException(`User with username ${username} not found`);
+      }
+      return user;
+    });
+  }
+
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
     return handleServiceError(async () => {
       await this.usersRepository.update(id, updateUserDto);

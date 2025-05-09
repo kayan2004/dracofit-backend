@@ -28,7 +28,10 @@ export class FriendshipsController {
   }
 
   @Post('add-friend')
-  createFriendRequest(@Body() createFriendshipDto: CreateFriendshipDto, @Request() req) {
+  createFriendRequest(
+    @Body() createFriendshipDto: CreateFriendshipDto,
+    @Request() req,
+  ) {
     return this.friendshipsService.create(createFriendshipDto, req.user.id);
   }
 
@@ -69,13 +72,13 @@ export class FriendshipsController {
     return this.friendshipsService.remove(id, req.user.id);
   }
 
-  @Post('log-action')
-  logFriendAction(@Body('action') action: string, @Request() req) {
-    return this.friendshipsService.logFriendAction(req.user.id, action);
-  }
+  // @Post('log-action')
+  // logFriendAction(@Body('action') action: string, @Request() req) {
+  //   return this.friendshipsService.logFriendAction(req.user.id, action);
+  // }
 
-  @Get('friend-actions')
-  getFriendActions(@Request() req) {
-    return this.friendshipsService.getFriendActions(req.user.id);
-  }
+  // @Get('friend-actions')
+  // getFriendActions(@Request() req) {
+  //   return this.friendshipsService.getFriendActions(req.user.id);
+  // }
 }

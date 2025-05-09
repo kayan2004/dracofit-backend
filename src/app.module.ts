@@ -30,7 +30,8 @@ import { UserSchedule } from './user-schedule/entities/user-schedule.entity';
 import { UserScheduleEntry } from './user-schedule/entities/user-schedule-entry.entity';
 // Import the schedule module
 import { UserScheduleModule } from './user-schedule/user-schedule.module';
-
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { TemporarySchedule } from './user-schedule/entities/temporary-schedule.entity';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -57,6 +58,7 @@ import { UserScheduleModule } from './user-schedule/user-schedule.module';
         Pet,
         UserSchedule, // Add the UserSchedule entity
         UserScheduleEntry, // Add the UserScheduleEntry entity
+        TemporarySchedule,
       ], // Add your entities here
       synchronize: true,
     }),
@@ -73,7 +75,8 @@ import { UserScheduleModule } from './user-schedule/user-schedule.module';
     WorkoutLogsModule,
     ExerciseLogsModule,
     UserPetsModule,
-    UserScheduleModule, // Add the UserScheduleModule
+    UserScheduleModule,
+    EventEmitterModule.forRoot(),
   ],
 })
 export class AppModule {}

@@ -7,6 +7,7 @@ import {
   Query,
   BadRequestException,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -36,6 +37,19 @@ export class AuthController {
     @Body(ValidationPipe) loginDto: LoginDto,
   ): Promise<{ accessToken: string; user: Omit<User, 'password'> }> {
     return this.authService.signIn(loginDto);
+  }
+
+  @UseGuards(JwtAuthGuard) // Protect this route
+  @Get('profile')
+  getProfile(@Request() req) {
+    // req.user is populated by JwtAuthGuard after validating the token
+    // It contains the payload that was stored in the JWT (e.g., userId, username)
+    // Ensure your JWT strategy's validate method returns the necessary user info
+    console.log('GET /auth/profile - User from token:', req.user);
+    // You might want to remove sensitive data like password hash if it's included
+    // Or fetch the full user entity if the JWT payload is minimal:
+    // return this.usersService.findOne(req.user.userId); // If UsersService is injected
+    return req.user; // Return the user payload from the validated token
   }
 
   @Get('/verify-email')

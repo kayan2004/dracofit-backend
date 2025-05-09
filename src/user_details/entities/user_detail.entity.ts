@@ -66,4 +66,7 @@ export class UserDetail {
 
   @Column({ type: 'text', array: true, default: '{}' })
   preferred_workout_types: string[];
+
+  @Column({ type: 'varchar', length: 2048, nullable: true }) // Use varchar, allow null, generous length for URL
+  profilePictureUrl: string | null;
 }

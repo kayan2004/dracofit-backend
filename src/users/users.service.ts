@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, ILike, Not } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -82,6 +82,26 @@ export class UsersService {
       return await this.usersRepository.find();
     });
   }
+  async searchUsers(query: string, currentUserId: number): Promise<User[]> {
+    if (!query || query.trim().length < 2) {
+      // Avoid overly broad searches or searching for empty strings
+      return [];
+    }
+
+    return handleServiceError(async () => {
+      const results = await this.usersRepository.find({
+        where: [
+          // Find where username is like the query AND id is not the current user
+          { username: ILike(`%${query}%`), id: Not(currentUserId) },
+          // OR find where email is like the query AND id is not the current user
+          { email: ILike(`%${query}%`), id: Not(currentUserId) },
+        ],
+        select: ['id', 'username', 'email', 'firstName', 'lastName'], // Select only necessary fields
+        take: 10, // Limit the number of results
+      });
+      return results;
+    });
+  }
 
   async findOne(id: number): Promise<User> {
     return handleServiceError(async () => {
@@ -97,7 +117,9 @@ export class UsersService {
     return handleServiceError(async () => {
       const user = await this.usersRepository.findOne({ where: { username } });
       if (!user) {
-        throw new BadRequestException(`User with username ${username} not found`);
+        throw new BadRequestException(
+          `User with username ${username} not found`,
+        );
       }
       return user;
     });

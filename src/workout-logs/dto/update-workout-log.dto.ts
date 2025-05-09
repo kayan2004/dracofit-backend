@@ -15,7 +15,7 @@ export class UpdateWorkoutLogDto extends PartialType(CreateWorkoutLogDto) {
   endTime?: Date;
 
   // Add xpEarned if you re-enable it later
-  // @IsOptional()
-  // @IsNumber()
-  // xpEarned?: number;
+  @IsOptional() // UNCOMMENTED
+  @IsNumber() // UNCOMMENTED
+  xpEarned?: number; // UNCOMMENTED
 }

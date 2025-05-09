@@ -3,10 +3,11 @@ import {
   Get,
   Post,
   Body,
-  Delete,
   Param,
+  Delete,
   UseGuards,
   Request,
+  NotFoundException,
 } from '@nestjs/common';
 import { ChatbotInteractionsService } from './chatbot-interactions.service';
 import { CreateChatbotInteractionDto } from './dto/create-chatbot-interaction.dto';
@@ -28,6 +29,12 @@ export class ChatbotInteractionsController {
       createChatbotInteractionDto,
       req.user.id,
     );
+  }
+
+  @Get('/history')
+  findUserHistory(@Request() req) {
+    const userId = req.user.id;
+    return this.chatbotInteractionsService.findHistoryByUserId(userId);
   }
 
   @Get()

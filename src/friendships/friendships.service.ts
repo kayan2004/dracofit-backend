@@ -5,12 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { Friendship, FriendshipStatus } from './entities/friendship.entity'; // Removed FriendAction from here
+import { Friendship, FriendshipStatus } from './entities/friendship.entity';
 import { CreateFriendshipDto } from './dto/create-friendship.dto';
 import { UpdateFriendshipDto } from './dto/update-friendship.dto';
 import { User } from '../users/entities/user.entity';
 import { FriendshipFilter } from './dto/friendship-filter.dto';
-import { FriendAction } from '../friend_actions/friend_action.entity'; // Correct import
 
 @Injectable()
 export class FriendshipsService {
@@ -19,8 +18,6 @@ export class FriendshipsService {
     private friendshipRepository: Repository<Friendship>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    @InjectRepository(FriendAction)
-    private friendActionRepository: Repository<FriendAction>, // Correct repository
   ) {}
 
   async create(
@@ -115,80 +112,61 @@ export class FriendshipsService {
     return this.friendshipRepository.remove(friendship);
   }
 
-  async getPendingRequests(userId: number) {
-    return this.friendshipRepository.find({
-      where: {
-        user2: { id: userId },
-        status: FriendshipStatus.PENDING,
-      },
-      relations: ['user1'],
-    });
-  }
-
-  async getFriends(userId: number) {
-    const friendships = await this.friendshipRepository.find({
-      where: [
-        { user1: { id: userId }, status: FriendshipStatus.ACCEPTED },
-        { user2: { id: userId }, status: FriendshipStatus.ACCEPTED },
-      ],
-      relations: ['user1', 'user2'],
-    });
-
-    return friendships.map((friendship) =>
-      friendship.user1.id === userId ? friendship.user2 : friendship.user1,
-    );
-  }
-
   async getFriendshipsByStatus(userId: number, filter: FriendshipFilter) {
+    console.log(
+      `[getFriendshipsByStatus] userId: ${userId}, filter: ${filter}`,
+    );
+
     switch (filter) {
-      case FriendshipFilter.PENDING:
+      // --- Handle Incoming Pending ---
+      case FriendshipFilter.PENDING_INCOMING:
+        console.log('[getFriendshipsByStatus] Handling PENDING_INCOMING');
         return this.friendshipRepository.find({
           where: {
             user2: { id: userId },
             status: FriendshipStatus.PENDING,
           },
-          relations: ['user1'],
+          relations: ['user1', 'user2'],
         });
 
+      // --- Handle Outgoing Pending ---
+      case FriendshipFilter.PENDING_OUTGOING:
+        console.log('[getFriendshipsByStatus] Handling PENDING_OUTGOING');
+        return this.friendshipRepository.find({
+          where: {
+            user1: { id: userId },
+            status: FriendshipStatus.PENDING,
+          },
+          relations: ['user1', 'user2'],
+        });
+
+      // --- Handle Accepted ---
       case FriendshipFilter.ACCEPTED:
-        const friendships = await this.friendshipRepository.find({
+        console.log('[getFriendshipsByStatus] Handling ACCEPTED');
+        // --- FIX: Return the full Friendship objects, remove the .map() ---
+        return this.friendshipRepository.find({
+          // Just return the result of find()
           where: [
             { user1: { id: userId }, status: FriendshipStatus.ACCEPTED },
             { user2: { id: userId }, status: FriendshipStatus.ACCEPTED },
           ],
           relations: ['user1', 'user2'],
         });
+      /* // Remove this mapping logic:
+        const friendships = await this.friendshipRepository.find({ ... });
         return friendships.map((friendship) =>
           friendship.user1.id === userId ? friendship.user2 : friendship.user1,
         );
+        */
 
+      // --- Handle ALL (Default) ---
       case FriendshipFilter.ALL:
       default:
+        console.log('[getFriendshipsByStatus] Handling ALL (default)');
         return this.friendshipRepository.find({
           where: [{ user1: { id: userId } }, { user2: { id: userId } }],
           relations: ['user1', 'user2'],
         });
     }
-  }
-
-  async logFriendAction(userId: number, action: FriendActionType) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-  
-    const friendAction = this.friendActionRepository.create({
-      user,
-      action,
-    });
-  
-    return this.friendActionRepository.save(friendAction);
-  }
-
-  async getFriendActions(userId: number) {
-    return this.friendActionRepository.find({
-      where: { user: { id: userId } },
-      order: { createdAt: 'DESC' },
-    });
   }
 }

@@ -9,12 +9,14 @@ import {
   UserScheduleEntry,
   WeekDay,
 } from '../user-schedule/entities/user-schedule-entry.entity';
-import { User } from '../users/entities/user.entity';
+import { UserPetsService } from '../user-pets/user-pets.service'; // Adjust path as needed
+import { TimeService } from '../common/time.service'; // Import TimeService
 
 @Injectable()
 export class TasksService {
+  private readonly logger = new Logger(TasksService.name);
+
   constructor(
-    private readonly logger: Logger,
     private readonly usersService: UsersService,
     private readonly workoutLogsService: WorkoutLogsService,
     @InjectRepository(TemporarySchedule)
@@ -22,6 +24,8 @@ export class TasksService {
     // Inject UserScheduleEntry repository directly to query the base schedule reliably
     @InjectRepository(UserScheduleEntry)
     private scheduleEntryRepository: Repository<UserScheduleEntry>,
+    private readonly userPetsService: UserPetsService,
+    private readonly timeService: TimeService, // Inject TimeService
   ) {}
 
   // --- Helper Functions ---
@@ -77,16 +81,18 @@ export class TasksService {
 
   // --- Scheduled Task ---
 
-  // Run daily at 1:05 AM (adjust timing as needed)
+  // Temporarily change for testing:
   @Cron(CronExpression.EVERY_DAY_AT_1AM, {
+    // Reverted from EVERY_10_SECONDS
+    // Or EVERY_30_SECONDS
     name: 'checkSkippedWorkouts',
-    timeZone: 'Asia/Bahrain',
+    timeZone: 'Asia/Bahrain', // Keep your timezone
   })
   async handleCronCheckSkippedWorkouts() {
     this.logger.log('Running daily check for skipped workouts...');
 
-    const today = new Date();
-    const yesterday = new Date(today);
+    const today = this.timeService.getToday(); // Use TimeService
+    const yesterday = new Date(today); // Still okay to derive yesterday from TimeService's today
     yesterday.setDate(today.getDate() - 1);
     const yesterdayWeekDay = this.getWeekDayFromDate(yesterday);
     const yesterdayStart = new Date(yesterday);
@@ -120,7 +126,7 @@ export class TasksService {
           );
 
           // 4. Check if the workout was logged yesterday
-          const logs = await this.workoutLogsService.findLogsByDateRange(
+          const logs = await this.workoutLogsService.getLogsByDateRange(
             user.id,
             yesterdayStart,
             yesterdayEnd,
@@ -213,10 +219,16 @@ export class TasksService {
           );
         }
       } catch (error) {
-        this.logger.error(
-          `Error processing user ${user.id} for skipped workouts: ${error.message}`,
-          error.stack,
-        );
+        if (error instanceof Error) {
+          this.logger.error(
+            `Error processing user ${user.id} for skipped workouts: ${error.message}`,
+            error.stack,
+          );
+        } else {
+          this.logger.error(
+            `Error processing user ${user.id} for skipped workouts: ${String(error)}`,
+          );
+        }
       }
     }
     this.logger.log('Finished daily check for skipped workouts.');
@@ -236,16 +248,41 @@ export class TasksService {
 
     try {
       const deleteResult = await this.tempScheduleRepository.delete({
-        weekStartDate: LessThan(lastWeekStartDate), // Delete records whose week start is before last week's start
+        weekStartDate: LessThan(lastWeekStartDate),
       });
       this.logger.log(
         `Deleted ${deleteResult.affected || 0} old temporary reschedule records.`,
       );
     } catch (error) {
+      if (error instanceof Error) {
+        this.logger.error(
+          `Error cleaning up old reschedules: ${error.message}`,
+          error.stack,
+        );
+      } else {
+        this.logger.error(
+          `Error cleaning up old reschedules: ${String(error)}`,
+        );
+      }
+    }
+  }
+
+  // Example: Run daily at 3 AM server time
+  @Cron(CronExpression.EVERY_DAY_AT_3AM) // Reverted from EVERY_10_SECONDS
+  async handleDailyPetHealthDecay() {
+    this.logger.log('Scheduled task: handleDailyPetHealthDecay starting...');
+    try {
+      await this.userPetsService.applyDailyHealthDecayToAllActivePets();
+      this.logger.log(
+        'Scheduled task: handleDailyPetHealthDecay completed successfully.',
+      );
+    } catch (error) {
       this.logger.error(
-        `Error cleaning up old reschedules: ${error.message}`,
+        `Scheduled task: handleDailyPetHealthDecay failed: ${error.message}`,
         error.stack,
       );
     }
   }
+
+  // You might have other scheduled tasks here
 }

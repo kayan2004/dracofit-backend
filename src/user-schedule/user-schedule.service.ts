@@ -15,9 +15,26 @@ import {
 import { UpdateScheduleDto } from './dto/update-user-schedule.dto';
 import { UpdateScheduleEntryDto } from './dto/update-user-schedule-entry.dto';
 // Import the new entity
-import { TemporarySchedule } from './entities/temporary-schedule.entity';
+// import { TemporarySchedule } from './entities/temporary-schedule.entity'; // Commented out
 // Import WorkoutPlan if needed for relations, though it might come via relations
 // import { WorkoutPlan } from '../../workout_plans/entities/workout_plan.entity';
+import { TimeService } from '../common/time.service';
+
+// Helper to map Date().getDay() to WeekDay enum string (or your frontend's string directly)
+// Ensure WeekDay enum values match these strings if you use WeekDay enum for dayOfWeek property
+const getDayOfWeekStringFromDate = (date: Date): WeekDay => {
+  const dayIndex = date.getDay(); // 0 for Sunday, 1 for Monday, etc.
+  const dayMap: WeekDay[] = [
+    WeekDay.SUNDAY,
+    WeekDay.MONDAY,
+    WeekDay.TUESDAY,
+    WeekDay.WEDNESDAY,
+    WeekDay.THURSDAY,
+    WeekDay.FRIDAY,
+    WeekDay.SATURDAY,
+  ];
+  return dayMap[dayIndex];
+};
 
 @Injectable()
 export class UserScheduleService {
@@ -28,22 +45,18 @@ export class UserScheduleService {
     private userScheduleRepository: Repository<UserSchedule>,
     @InjectRepository(UserScheduleEntry)
     private scheduleEntryRepository: Repository<UserScheduleEntry>,
-    // Inject the TemporarySchedule repository
-    @InjectRepository(TemporarySchedule)
-    private tempScheduleRepository: Repository<TemporarySchedule>,
-    // Inject WorkoutPlan repository only if you need to fetch plans separately
-    // @InjectRepository(WorkoutPlan)
-    // private workoutPlanRepository: Repository<WorkoutPlan>,
+    // @InjectRepository(TemporarySchedule) // Commented out
+    // private tempScheduleRepository: Repository<TemporarySchedule>, // Commented out
+    private readonly timeService: TimeService,
   ) {}
 
-  // Helper function to get the start of the current week (assuming Sunday start)
-  // Adjust if your week starts on Monday
-  private getCurrentWeekStartDate(): Date {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 for Sunday, 1 for Monday, etc.
-    const diff = today.getDate() - dayOfWeek; // Adjust to Sunday
-    const weekStart = new Date(today.setDate(diff));
-    weekStart.setHours(0, 0, 0, 0); // Set to midnight
+  private getCurrentWeekStartDate(referenceDate?: Date): Date {
+    const today = referenceDate || this.timeService.getToday();
+    const currentDay = new Date(today);
+    const dayOfWeek = currentDay.getDay();
+    const diff = currentDay.getDate() - dayOfWeek;
+    const weekStart = new Date(currentDay.setDate(diff));
+    weekStart.setHours(0, 0, 0, 0);
     return weekStart;
   }
 
@@ -107,91 +120,143 @@ export class UserScheduleService {
     }
 
     // 3. Fetch active temporary reschedules for the current week
-    const weekStartDate = this.getCurrentWeekStartDate();
-    const activeReschedules = await this.tempScheduleRepository.find({
-      where: {
-        user: { id: userId },
-        weekStartDate: weekStartDate,
-      },
-      relations: ['workoutPlan'], // Load the workout plan associated with the reschedule
-      order: { createdAt: 'ASC' }, // Apply in order they were created if needed
-    });
+    // getCurrentWeekStartDate now uses TimeService
+    // const weekStartDate = this.getCurrentWeekStartDate(); // Commented out
+    // const activeReschedules = await this.tempScheduleRepository.find({ // Commented out
+    //   where: { // Commented out
+    //     user: { id: userId }, // Commented out
+    //     weekStartDate: weekStartDate, // Commented out
+    //   }, // Commented out
+    //   relations: ['workoutPlan'], // Load the workout plan associated with the reschedule // Commented out
+    //   order: { createdAt: 'ASC' }, // Apply in order they were created if needed // Commented out
+    // }); // Commented out
 
     // 4. Apply the reschedules if any exist
-    if (activeReschedules.length > 0) {
-      this.logger.log(
-        `Applying ${
-          activeReschedules.length
-        } reschedules for user ${userId}, week starting ${
-          weekStartDate.toISOString().split('T')[0]
-        }`,
-      );
+    // if (activeReschedules.length > 0) { // Commented out
+    //   this.logger.log( // Commented out
+    //     `Applying ${ // Commented out
+    //       activeReschedules.length // Commented out
+    //     } reschedules for user ${userId}, week starting ${ // Commented out
+    //       weekStartDate.toISOString().split('T')[0] // Commented out
+    //     }`, // Commented out
+    //   ); // Commented out
 
-      // Create a map for quick lookup of entries by dayOfWeek
-      const entriesMap = new Map<WeekDay, UserScheduleEntry>();
-      schedule.entries.forEach((entry) =>
-        entriesMap.set(entry.dayOfWeek, entry),
-      );
+    //   // Create a map for quick lookup of entries by dayOfWeek // Commented out
+    //   const entriesMap = new Map<WeekDay, UserScheduleEntry>(); // Commented out
+    //   schedule.entries.forEach((entry) => // Commented out
+    //     entriesMap.set(entry.dayOfWeek, entry), // Commented out
+    //   ); // Commented out
 
-      for (const reschedule of activeReschedules) {
-        // a) Nullify the workout on the original day
-        const originalEntry = entriesMap.get(reschedule.originalDayOfWeek);
-        // Check if the entry exists and if the workout matches the one rescheduled
-        if (
-          originalEntry &&
-          originalEntry.workoutPlanId === reschedule.workoutPlanId
-        ) {
-          this.logger.log(
-            `  - Removing workout ${reschedule.workoutPlanId} from ${reschedule.originalDayOfWeek}`,
-          );
-          originalEntry.workoutPlan = null;
-          originalEntry.workoutPlanId = null;
-          // Add a note to the original day
-          originalEntry.notes =
-            `(Workout moved to ${reschedule.rescheduledToDayOfWeek}) ${
-              originalEntry.notes || ''
-            }`.trim();
-        } else {
-          this.logger.warn(
-            `  - Could not find original entry or workout mismatch for ${reschedule.originalDayOfWeek} (Workout ID: ${reschedule.workoutPlanId})`,
-          );
-        }
+    //   for (const reschedule of activeReschedules) { // Commented out
+    //     // a) Nullify the workout on the original day // Commented out
+    //     const originalEntry = entriesMap.get(reschedule.originalDayOfWeek); // Commented out
+    //     // Check if the entry exists and if the workout matches the one rescheduled // Commented out
+    //     if ( // Commented out
+    //       originalEntry && // Commented out
+    //       originalEntry.workoutPlanId === reschedule.workoutPlanId // Commented out
+    //     ) { // Commented out
+    //       this.logger.log( // Commented out
+    //         `  - Removing workout ${reschedule.workoutPlanId} from ${reschedule.originalDayOfWeek}`, // Commented out
+    //       ); // Commented out
+    //       originalEntry.workoutPlan = null; // Commented out
+    //       originalEntry.workoutPlanId = null; // Commented out
+    //       // Add a note to the original day // Commented out
+    //       originalEntry.notes = // Commented out
+    //         `(Workout moved to ${reschedule.rescheduledToDayOfWeek}) ${ // Commented out
+    //           originalEntry.notes || '' // Commented out
+    //         }`.trim(); // Commented out
+    //     } else { // Commented out
+    //       this.logger.warn( // Commented out
+    //         `  - Could not find original entry or workout mismatch for ${reschedule.originalDayOfWeek} (Workout ID: ${reschedule.workoutPlanId})`, // Commented out
+    //       ); // Commented out
+    //     } // Commented out
 
-        // b) Add/Update the workout on the rescheduled day
-        let targetEntry = entriesMap.get(reschedule.rescheduledToDayOfWeek);
-        this.logger.log(
-          `  - Moving workout ${reschedule.workoutPlanId} (${reschedule.workoutPlan?.name}) to ${reschedule.rescheduledToDayOfWeek}`,
-        );
+    //     // b) Add/Update the workout on the rescheduled day // Commented out
+    //     let targetEntry = entriesMap.get(reschedule.rescheduledToDayOfWeek); // Commented out
+    //     this.logger.log( // Commented out
+    //       `  - Moving workout ${reschedule.workoutPlanId} (${reschedule.workoutPlan?.name}) to ${reschedule.rescheduledToDayOfWeek}`, // Commented out
+    //     ); // Commented out
 
-        // If the target day doesn't have an entry (shouldn't happen with getOrCreateSchedule logic)
-        if (!targetEntry) {
-          this.logger.error(
-            `  - Target entry for ${reschedule.rescheduledToDayOfWeek} not found! This indicates an issue with schedule creation. Creating temporary placeholder.`,
-          );
-          // Create a temporary placeholder - this won't be saved but allows applying the reschedule
-          targetEntry = new UserScheduleEntry();
-          targetEntry.dayOfWeek = reschedule.rescheduledToDayOfWeek;
-          targetEntry.schedule = schedule; // Link back
-          schedule.entries.push(targetEntry); // Add to the schedule's entries array for return
-          entriesMap.set(reschedule.rescheduledToDayOfWeek, targetEntry); // Add to map
-        }
+    //     // If the target day doesn't have an entry (shouldn't happen with getOrCreateSchedule logic) // Commented out
+    //     if (!targetEntry) { // Commented out
+    //       this.logger.error( // Commented out
+    //         `  - Target entry for ${reschedule.rescheduledToDayOfWeek} not found! This indicates an issue with schedule creation. Creating temporary placeholder.`, // Commented out
+    //       ); // Commented out
+    //       // Create a temporary placeholder - this won't be saved but allows applying the reschedule // Commented out
+    //       targetEntry = new UserScheduleEntry(); // Commented out
+    //       targetEntry.dayOfWeek = reschedule.rescheduledToDayOfWeek; // Commented out
+    //       targetEntry.schedule = schedule; // Link back // Commented out
+    //       schedule.entries.push(targetEntry); // Add to the schedule's entries array for return // Commented out
+    //       entriesMap.set(reschedule.rescheduledToDayOfWeek, targetEntry); // Add to map // Commented out
+    //     } // Commented out
 
-        // Apply the rescheduled workout details
-        targetEntry.workoutPlan = reschedule.workoutPlan; // Assign the loaded workout plan object
-        targetEntry.workoutPlanId = reschedule.workoutPlanId; // Assign the ID
-        targetEntry.notes =
-          `(Rescheduled from ${reschedule.originalDayOfWeek}) ${
-            targetEntry.notes || ''
-          }`.trim();
-        // Decide how to handle preferredTime - keep target day's or use original?
-        // targetEntry.preferredTime = originalEntry?.preferredTime || targetEntry.preferredTime;
-      }
-      // The modifications are made directly to the 'schedule.entries' array.
-    }
+    //     // Apply the rescheduled workout details // Commented out
+    //     targetEntry.workoutPlan = reschedule.workoutPlan; // Assign the loaded workout plan object // Commented out
+    //     targetEntry.workoutPlanId = reschedule.workoutPlanId; // Assign the ID // Commented out
+    //     targetEntry.notes = // Commented out
+    //       `(Rescheduled from ${reschedule.originalDayOfWeek}) ${ // Commented out
+    //         targetEntry.notes || '' // Commented out
+    //       }`.trim(); // Commented out
+    //     // Decide how to handle preferredTime - keep target day's or use original? // Commented out
+    //     // targetEntry.preferredTime = originalEntry?.preferredTime || targetEntry.preferredTime; // Commented out
+    //   } // Commented out
+    //   // The modifications are made directly to the 'schedule.entries' array. // Commented out
+    // } // Commented out
 
     // 5. Return the potentially modified schedule object
     this.logger.log(`Returning schedule for user ${userId}`);
     return schedule;
+  }
+
+  /**
+   * NEW METHOD: Formats the schedule for the weekly frontend view, including 'isToday'.
+   */
+  async getWeeklyScheduleView(userId: number): Promise<{
+    name?: string;
+    days: Array<{
+      date: string;
+      dayOfWeek: string;
+      entries: UserScheduleEntry[];
+      isToday: boolean;
+    }>;
+  }> {
+    const schedule = await this.getOrCreateSchedule(userId);
+
+    const todayFromTimeService = this.timeService.getToday(); // This is already normalized to midnight by TimeService.getToday()
+    const startOfWeek = this.getCurrentWeekStartDate(todayFromTimeService);
+
+    const formattedDays: Array<{
+      date: string;
+      dayOfWeek: string;
+      entries: UserScheduleEntry[];
+      isToday: boolean;
+    }> = [];
+
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(startOfWeek);
+      currentDate.setDate(startOfWeek.getDate() + i);
+      // currentDate is also at midnight because startOfWeek is at midnight
+      // and setDate() preserves the time component.
+
+      const dayOfWeekString =
+        getDayOfWeekStringFromDate(currentDate).toLowerCase();
+
+      const entriesForDay = schedule.entries.filter(
+        (entry) => entry.dayOfWeek.toLowerCase() === dayOfWeekString,
+      );
+
+      formattedDays.push({
+        date: currentDate.toISOString().split('T')[0],
+        dayOfWeek: dayOfWeekString,
+        entries: entriesForDay,
+        isToday: currentDate.getTime() === todayFromTimeService.getTime(), // Corrected line
+      });
+    }
+
+    return {
+      name: schedule.name,
+      days: formattedDays,
+    };
   }
 
   // --- Other methods remain largely unchanged ---
@@ -205,7 +270,6 @@ export class UserScheduleService {
     userId: number,
     updateScheduleDto: UpdateScheduleDto,
   ): Promise<UserSchedule> {
-    // This method doesn't need to consider temporary reschedules
     this.logger.log(`Updating schedule metadata for user ${userId}`);
     const schedule = await this.getOrCreateSchedule(userId); // Fetch base schedule
 
@@ -225,8 +289,6 @@ export class UserScheduleService {
     day: WeekDay,
     updateEntryDto: UpdateScheduleEntryDto,
   ): Promise<UserScheduleEntry> {
-    // This method updates the BASE schedule entry.
-    // Temporary reschedules are applied when GETTING the schedule.
     this.logger.log(
       `Updating BASE schedule entry for user ${userId}, day ${day}`,
     );
@@ -312,9 +374,6 @@ export class UserScheduleService {
         `Cleared workout assignments for entries: ${entryIds.join(', ')}`,
       );
     }
-
-    // Return the schedule, which will have entries with null workoutPlanId
-    // Need to reload to reflect the update in the returned object
     return this.getOrCreateSchedule(userId);
   }
 }

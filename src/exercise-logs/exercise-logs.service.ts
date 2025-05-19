@@ -11,8 +11,8 @@ export class ExerciseLogsService {
   constructor(
     @InjectRepository(ExerciseLog)
     private exerciseLogRepository: Repository<ExerciseLog>,
-    private workoutLogsService: WorkoutLogsService,
-    private exercisesService: ExercisesService,
+    private workoutLogsService: WorkoutLogsService, // Used for verifying workout log ownership
+    private exercisesService: ExercisesService, // Used for verifying exercise existence
   ) {}
 
   async create(
@@ -188,4 +188,24 @@ export class ExerciseLogsService {
     }
     return records[0];
   }
+
+  // --- NEW METHOD ---
+  async getExerciseHistory(
+    userId: number,
+    exerciseId: number,
+  ): Promise<ExerciseLog[]> {
+    // This query joins ExerciseLog with WorkoutLog to filter by userId
+    // and with Exercise to filter by exerciseId.
+    // It orders by the workout's start time to get a chronological history.
+    return this.exerciseLogRepository
+      .createQueryBuilder('exerciseLog')
+      .innerJoinAndSelect('exerciseLog.workoutLog', 'workoutLog') // workoutLog contains user and startTime
+      .innerJoinAndSelect('exerciseLog.exercise', 'exercise') // exercise contains exercise details like name
+      .innerJoin('workoutLog.user', 'user') // Join to filter by user ID
+      .where('user.id = :userId', { userId })
+      .andWhere('exercise.id = :exerciseId', { exerciseId })
+      .orderBy('workoutLog.startTime', 'ASC') // Order by date for chronological plotting
+      .getMany();
+  }
+  // --- END NEW METHOD ---
 }

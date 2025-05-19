@@ -1,101 +1,139 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common'; // Added Logger
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  InternalServerErrorException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, IsNull } from 'typeorm';
 import { WorkoutLog } from './entities/workout-log.entity';
 import { CreateWorkoutLogDto } from './dto/create-workout-log.dto';
 import { UpdateWorkoutLogDto } from './dto/update-workout-log.dto';
 import { WorkoutPlansService } from '../workout_plans/workout_plans.service';
-import { UserPetsService } from '../user-pets/user-pets.service'; // Import UserPetsService
+import { StreaksService } from '../streaks/streaks.service';
+import { UserPetsService } from '../user-pets/user-pets.service';
 
-// XP Constants (ensure these are defined)
 const BASE_XP_FOR_WORKOUT = 20;
 const XP_PER_EXERCISE_COMPLETED = 5;
 
 @Injectable()
 export class WorkoutLogsService {
-  private readonly logger = new Logger(WorkoutLogsService.name); // Initialize logger
+  private readonly logger = new Logger(WorkoutLogsService.name);
 
   constructor(
     @InjectRepository(WorkoutLog)
     private workoutLogRepository: Repository<WorkoutLog>,
     private readonly workoutPlansService: WorkoutPlansService,
-    private readonly userPetsService: UserPetsService, // Inject UserPetsService
+    private readonly streaksService: StreaksService,
+    private readonly userPetsService: UserPetsService,
   ) {}
 
-  /**
-   * Create a new workout log (called when starting a workout)
-   */
-  async create(userId: number, createWorkoutLogDto: CreateWorkoutLogDto) {
-    const workoutPlan = await this.workoutPlansService.findOne(
-      createWorkoutLogDto.workoutPlanId,
-      userId,
-    );
-
-    if (!workoutPlan) {
-      throw new NotFoundException(
-        `Workout plan with ID ${createWorkoutLogDto.workoutPlanId} not found or not accessible`,
-      );
-    }
-
-    const now = new Date();
-    const workoutLog = this.workoutLogRepository.create({
-      user: { id: userId },
-      workoutPlan,
-      startTime: now,
-      endTime: now, // Initially set endTime to now, will be updated upon completion
-      xpEarned: 0, // Initialize xpEarned to 0
-    });
-
-    return this.workoutLogRepository.save(workoutLog);
-  }
-
-  /**
-   * Log a completed workout (potentially for manual logging or a different flow)
-   * Assumes duration is provided.
-   */
-  async logCompletedWorkout(
-    userId: number,
+  async create(
     createWorkoutLogDto: CreateWorkoutLogDto,
-  ) {
-    const workoutPlan = await this.workoutPlansService.findOne(
-      createWorkoutLogDto.workoutPlanId,
-      userId,
+    userId: number,
+  ): Promise<WorkoutLog> {
+    const { workoutPlanId } = createWorkoutLogDto;
+    this.logger.log(
+      `Attempting to create workout log for plan ID: ${workoutPlanId}, user ID: ${userId}`,
     );
 
+    // --- START: Check for existing completed log for this plan today ---
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const existingCompletedLogToday = await this.workoutLogRepository.findOne({
+      where: {
+        user: { id: userId },
+        workoutPlan: { id: workoutPlanId },
+        endTime: Between(todayStart, todayEnd), // Check for logs completed today
+      },
+    });
+
+    if (existingCompletedLogToday) {
+      this.logger.warn(
+        `User ${userId} already completed workout plan ${workoutPlanId} today. Log ID: ${existingCompletedLogToday.id}`,
+      );
+      throw new ConflictException(
+        `You have already logged a completed workout for this plan today.`,
+      );
+    }
+    // --- END: Check for existing completed log ---
+
+    // --- Optional: Check for any active (incomplete) log for this plan ---
+    const existingActiveLog = await this.workoutLogRepository.findOne({
+      where: {
+        user: { id: userId },
+        workoutPlan: { id: workoutPlanId },
+        endTime: IsNull(), // <--- Change this from null to IsNull()
+      },
+    });
+
+    if (existingActiveLog) {
+      this.logger.warn(
+        `User ${userId} has an active (incomplete) log for plan ${workoutPlanId}. Log ID: ${existingActiveLog.id}`,
+      );
+      // You might want to return this log or throw a different error
+      // For now, let's prevent creating a new one if an active one exists.
+      // Depending on your desired UX, you might want to allow resuming this log instead.
+      throw new ConflictException(
+        `You have an active (incomplete) session for this workout plan. Please complete or cancel it first.`,
+      );
+    }
+    // --- END: Optional check for active log ---
+
+    const workoutPlan = await this.workoutPlansService.findOne(
+      workoutPlanId,
+      userId,
+    );
     if (!workoutPlan) {
+      this.logger.warn(
+        `Workout plan with ID: ${workoutPlanId} not found for user ID: ${userId}`,
+      );
       throw new NotFoundException(
-        `Workout plan with ID ${createWorkoutLogDto.workoutPlanId} not found`,
+        `Workout plan with ID: ${workoutPlanId} not found`,
       );
     }
 
-    // Use nullish coalescing operator to default to 0 if undefined
-    const duration = createWorkoutLogDto.durationMinutes ?? 0;
-
-    // Calculate startTime based on the provided duration (in minutes)
-    const endTime = new Date(); // Log completion time is now
-    const startTime = new Date(endTime);
-    // Use setMinutes since the duration is in minutes
-    startTime.setMinutes(startTime.getMinutes() - duration);
-
-    const workoutLog = this.workoutLogRepository.create({
+    const newWorkoutLog = this.workoutLogRepository.create({
       user: { id: userId },
-      workoutPlan,
-      startTime,
-      endTime, // Set endTime to now
-      // Do NOT set durationMinutes here - it's a virtual property
-      // xpEarned: this.calculateXP( // Temporarily removed
-      //   duration,
-      //   workoutPlan,
-      // ),
+      workoutPlan: { id: workoutPlanId },
+      startTime: new Date(),
+      // endTime will be set upon completion
+      // xpEarned will be calculated upon completion
     });
 
-    return this.workoutLogRepository.save(workoutLog);
+    try {
+      const savedLog = await this.workoutLogRepository.save(newWorkoutLog);
+      this.logger.log(
+        `Workout log created successfully with ID: ${savedLog.id} for user ID: ${userId}`,
+      );
+      return savedLog;
+    } catch (error) {
+      this.logger.error(
+        `Failed to save new workout log for user ID: ${userId}, plan ID: ${workoutPlanId}: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Failed to create workout log.');
+    }
   }
 
-  /**
-   * Get all workout logs for a user
-   */
-  async findAll(userId: number) {
+  async findOne(id: number, userId: number): Promise<WorkoutLog> {
+    const workoutLog = await this.workoutLogRepository.findOne({
+      where: { id, user: { id: userId } },
+      relations: ['workoutPlan', 'exerciseLogs', 'exerciseLogs.exercise'],
+    });
+    if (!workoutLog) {
+      throw new NotFoundException(
+        `Workout log with ID ${id} not found for user ${userId}`,
+      );
+    }
+    return workoutLog;
+  }
+
+  async findAll(userId: number): Promise<WorkoutLog[]> {
     return this.workoutLogRepository.find({
       where: { user: { id: userId } },
       relations: ['workoutPlan'],
@@ -103,231 +141,198 @@ export class WorkoutLogsService {
     });
   }
 
-  /**
-   * Get a specific workout log
-   */
-  async findOne(id: number, userId: number) {
-    const workoutLog = await this.workoutLogRepository.findOne({
-      where: { id, user: { id: userId } },
-      relations: ['workoutPlan'], // workoutPlan is loaded here
-    });
-
-    if (!workoutLog) {
-      throw new NotFoundException(`Workout log with ID ${id} not found`);
-    }
-
-    return workoutLog;
-  }
-
-  /**
-   * Update a workout log (used for completion)
-   */
   async update(
     id: number,
     userId: number,
     updateWorkoutLogDto: UpdateWorkoutLogDto,
-  ) {
-    const workoutLog = await this.findOne(id, userId); // workoutLog.workoutPlan is available
+  ): Promise<WorkoutLog> {
+    const workoutLog = await this.workoutLogRepository.findOne({
+      where: { id, user: { id: userId } },
+      relations: ['user', 'workoutPlan'], // Ensure workoutPlan is loaded if needed for XP calc
+    });
 
-    // Update startTime and endTime based on DTO
-    // This section is from your provided code
-    if (updateWorkoutLogDto.durationMinutes !== undefined) {
-      const endTime = updateWorkoutLogDto.endTime
-        ? new Date(updateWorkoutLogDto.endTime)
-        : workoutLog.endTime; // Use existing endTime if DTO doesn't provide one
-
-      const startTime = new Date(endTime); // Calculate startTime based on endTime and duration
-      startTime.setMinutes(
-        startTime.getMinutes() - updateWorkoutLogDto.durationMinutes,
-      );
-
-      workoutLog.startTime = startTime;
-      // If DTO provides endTime, use it; otherwise, if duration was provided,
-      // and DTO didn't provide endTime, we might assume completion is "now" or keep existing.
-      // Your original logic set it to new Date() if not provided by DTO when durationMinutes is set.
-      workoutLog.endTime = updateWorkoutLogDto.endTime
-        ? new Date(updateWorkoutLogDto.endTime)
-        : new Date();
-    } else {
-      // If durationMinutes is not provided, update startTime/endTime directly if they are in DTO
-      if (updateWorkoutLogDto.startTime !== undefined) {
-        workoutLog.startTime = new Date(updateWorkoutLogDto.startTime);
-      }
-      if (updateWorkoutLogDto.endTime !== undefined) {
-        workoutLog.endTime = new Date(updateWorkoutLogDto.endTime);
-      }
+    if (!workoutLog) {
+      throw new NotFoundException(`Workout log with ID ${id} not found.`);
     }
 
-    // XP Calculation and Awarding Logic
-    // Award XP if workout is being marked as completed (endTime is present and valid)
-    // and XP hasn't been awarded yet (xpEarned is 0).
+    // Apply updates from DTO
+    if (updateWorkoutLogDto.startTime !== undefined) {
+      workoutLog.startTime = updateWorkoutLogDto.startTime;
+    }
+    if (updateWorkoutLogDto.endTime !== undefined) {
+      workoutLog.endTime = updateWorkoutLogDto.endTime;
+    }
+
+    if (updateWorkoutLogDto.xpEarned !== undefined) {
+      workoutLog.xpEarned = updateWorkoutLogDto.xpEarned;
+    }
+
+    // If duration is provided and endTime is set, calculate startTime
     if (
-      workoutLog.endTime && // Ensure endTime is set
-      workoutLog.endTime > workoutLog.startTime && // Ensure logical times
-      (workoutLog.xpEarned === 0 ||
-        workoutLog.xpEarned === null ||
-        workoutLog.xpEarned === undefined) && // Check if XP not yet awarded
-      updateWorkoutLogDto.endTime !== undefined // Trigger XP calculation if endTime is being explicitly set in the update
+      updateWorkoutLogDto.durationMinutes &&
+      workoutLog.endTime &&
+      !workoutLog.startTime
     ) {
-      if (!workoutLog.workoutPlan) {
+      const endTime = workoutLog.endTime;
+      const startTime = new Date(
+        endTime.getTime() - updateWorkoutLogDto.durationMinutes * 60000,
+      );
+      workoutLog.startTime = startTime;
+      this.logger.log(
+        `Calculated startTime: ${startTime.toISOString()} based on duration for log ID: ${id}`,
+      );
+    }
+
+    // XP Calculation Logic
+    const oldXpEarned = workoutLog.xpEarned; // Store old XP in case it was already set
+
+    if (
+      workoutLog.endTime &&
+      workoutLog.startTime &&
+      workoutLog.endTime > workoutLog.startTime &&
+      (workoutLog.xpEarned === null ||
+        workoutLog.xpEarned === 0 ||
+        workoutLog.xpEarned === undefined) &&
+      updateWorkoutLogDto.endTime !== undefined // Trigger XP calculation when endTime is being set
+    ) {
+      this.logger.log(`Calculating XP for workout log ID: ${id}`);
+      if (!workoutLog.workoutPlan || !workoutLog.workoutPlan.id) {
         this.logger.warn(
-          `WorkoutLog ID ${workoutLog.id} is missing workoutPlan relation. Cannot calculate XP.`,
+          `WorkoutLog ID ${workoutLog.id} is missing workoutPlan relation or workoutPlan.id. Awarding base XP.`,
         );
+        workoutLog.xpEarned = BASE_XP_FOR_WORKOUT;
       } else {
-        // Fetch the plan again, this time ensuring exercises are loaded
-        // The userId here is for scoping/authorization in workoutPlansService.findOne
+        // Ensure workoutPlan relation is loaded with exercises for accurate XP calculation
         const planWithExercises = await this.workoutPlansService.findOne(
           workoutLog.workoutPlan.id,
-          userId,
+          userId, // Assuming findOne in workoutPlansService can take userId for auth/scoping
           true, // Load exercises
         );
 
-        if (planWithExercises && planWithExercises.workoutExercises) {
+        if (
+          planWithExercises &&
+          planWithExercises.workoutExercises &&
+          planWithExercises.workoutExercises.length > 0
+        ) {
           const numberOfExercises = planWithExercises.workoutExercises.length;
-          const calculatedXp =
+          workoutLog.xpEarned =
             BASE_XP_FOR_WORKOUT + numberOfExercises * XP_PER_EXERCISE_COMPLETED;
-
-          workoutLog.xpEarned = calculatedXp;
           this.logger.log(
-            `Awarding ${calculatedXp} XP to user ${userId} for completing workout log ${id}. Exercises: ${numberOfExercises}`,
+            `Calculated XP: ${workoutLog.xpEarned} for log ID: ${id} based on ${numberOfExercises} exercises.`,
           );
-          try {
-            await this.userPetsService.addXp(userId, calculatedXp);
-            this.logger.log(
-              `Successfully added ${calculatedXp} XP to pet for user ${userId}.`,
-            );
-          } catch (error) {
-            this.logger.error(
-              `Failed to add XP to pet for user ${userId}: ${error.message}`,
-              error.stack,
-            );
-            // Consider if you want to revert workoutLog.xpEarned or handle this error differently
-          }
         } else {
           this.logger.warn(
-            `WorkoutPlan ID ${workoutLog.workoutPlan.id} has no exercises loaded or plan not found. Awarding base XP.`,
+            `WorkoutPlan ID ${workoutLog.workoutPlan.id} has no exercises. Awarding base XP for log ID: ${id}.`,
           );
-          workoutLog.xpEarned = BASE_XP_FOR_WORKOUT; // Fallback to base XP
-          try {
-            await this.userPetsService.addXp(userId, BASE_XP_FOR_WORKOUT);
-            this.logger.log(
-              `Successfully added base ${BASE_XP_FOR_WORKOUT} XP to pet for user ${userId}.`,
-            );
-          } catch (error) {
-            this.logger.error(
-              `Failed to add base XP to pet for user ${userId}: ${error.message}`,
-              error.stack,
-            );
-          }
+          workoutLog.xpEarned = BASE_XP_FOR_WORKOUT;
         }
       }
     } else if (updateWorkoutLogDto.xpEarned !== undefined) {
-      // Allow manual override of xpEarned if provided in DTO,
-      // but this might conflict with automatic calculation.
-      // Use with caution or remove if automatic calculation is always preferred.
-      // workoutLog.xpEarned = updateWorkoutLogDto.xpEarned;
+      // Allow manual override of xpEarned if provided in DTO
+      workoutLog.xpEarned = updateWorkoutLogDto.xpEarned;
       this.logger.log(
-        `XP for log ${id} was explicitly set via DTO to ${updateWorkoutLogDto.xpEarned}. Automatic calculation skipped.`,
+        `XP for log ${id} was explicitly set via DTO to ${updateWorkoutLogDto.xpEarned}.`,
       );
     }
 
-    return this.workoutLogRepository.save(workoutLog);
-  }
+    try {
+      const updatedLog = await this.workoutLogRepository.save(workoutLog);
+      this.logger.log(
+        `Workout log ID: ${id} updated successfully for user ID: ${userId}. XP Earned: ${updatedLog.xpEarned}`,
+      );
 
-  /**
-   * Delete a workout log
-   */
-  async remove(id: number, userId: number) {
-    const workoutLog = await this.findOne(id, userId);
-    return this.workoutLogRepository.remove(workoutLog);
-  }
+      // If the workout is being marked as completed (i.e., endTime is set) AND XP was actually earned/changed
+      if (
+        updateWorkoutLogDto.endTime &&
+        updatedLog.xpEarned > 0 &&
+        updatedLog.xpEarned !== oldXpEarned
+      ) {
+        try {
+          this.logger.log(
+            `Workout completed for log ID: ${id}. Attempting to update streak and pet XP for user ID: ${userId}. XP to add: ${updatedLog.xpEarned}`,
+          );
+          await this.streaksService.recordWorkoutCompletion(userId);
+          this.logger.log(
+            `Streak updated successfully for user ID: ${userId} after completing workout log ID: ${id}.`,
+          );
 
-  /**
-   * Get workout statistics for a user
-   */
-  async getStats(userId: number) {
-    const logs = await this.workoutLogRepository.find({
-      where: { user: { id: userId } },
-      relations: ['workoutPlan'],
-    });
-
-    const totalWorkouts = logs.length;
-
-    const totalDuration = logs.reduce(
-      (sum, log) => sum + log.durationMinutes, // Use virtual getter
-      0,
-    );
-
-    // const totalXP = logs.reduce((sum, log) => sum + log.xpEarned, 0); // Temporarily removed
-
-    const workoutsByType = {};
-    logs.forEach((log) => {
-      if (log.workoutPlan?.type) {
-        workoutsByType[log.workoutPlan.type] =
-          (workoutsByType[log.workoutPlan.type] || 0) + 1;
+          // *** Add XP to user's pet ***
+          await this.userPetsService.addXp(userId, updatedLog.xpEarned); // Assuming a method like addXpToPet exists
+          this.logger.log(
+            `Pet XP updated successfully for user ID: ${userId} with ${updatedLog.xpEarned} XP.`,
+          );
+        } catch (streakOrPetXpError) {
+          this.logger.error(
+            `Failed to update streak or pet XP for user ID: ${userId} after workout log ID: ${id}: ${streakOrPetXpError.message}`,
+            streakOrPetXpError.stack,
+          );
+        }
       }
-    });
-
-    return {
-      totalWorkouts,
-      totalDurationMinutes: totalDuration, // Already in minutes
-      // totalXP, // Temporarily removed
-      workoutsByType,
-      recentWorkouts: logs.slice(0, 5),
-    };
+      return updatedLog;
+    } catch (error) {
+      this.logger.error(
+        `Failed to save updated workout log ID: ${id} for user ID: ${userId}: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Failed to update workout log.');
+    }
   }
 
-  /**
-   * Find workout logs for a user within a specific date range, optionally for a specific plan.
-   */
-  async findLogsByDateRange(
+  async remove(id: number, userId: number): Promise<void> {
+    this.logger.log(
+      `Attempting to remove workout log ID: ${id} for user ID: ${userId}`,
+    );
+    const workoutLog = await this.findOne(id, userId); // Ensures ownership
+    try {
+      await this.workoutLogRepository.remove(workoutLog);
+      this.logger.log(
+        `Workout log ID: ${id} removed successfully for user ID: ${userId}.`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to remove workout log ID: ${id} for user ID: ${userId}: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Failed to remove workout log.');
+    }
+  }
+
+  async getLogsByDateRange(
     userId: number,
     startDate: Date,
     endDate: Date,
-    workoutPlanId?: number, // Optional workout plan ID
+    workoutPlanId?: number,
   ): Promise<WorkoutLog[]> {
-    const whereCondition: any = {
-      user: { id: userId },
-      // Check if the log's start time falls within the provided range
-      startTime: Between(startDate, endDate),
+    this.logger.log(
+      `Fetching logs for user ${userId} (completed between ${startDate.toISOString()} and ${endDate.toISOString()})${workoutPlanId ? `, plan ID: ${workoutPlanId}` : ''}`,
+    );
+    const queryOptions: any = {
+      where: {
+        user: { id: userId },
+        endTime: Between(startDate, endDate), // <<< CRITICAL CHANGE: Query by endTime
+      },
+      relations: ['workoutPlan', 'exerciseLogs', 'exerciseLogs.exercise'],
+      order: { endTime: 'DESC' }, // Optional: Consider ordering by endTime
     };
 
-    // If workoutPlanId is provided, add it to the condition
-    if (workoutPlanId !== undefined) {
-      whereCondition.workoutPlan = { id: workoutPlanId };
+    if (workoutPlanId) {
+      queryOptions.where.workoutPlan = { id: workoutPlanId };
     }
 
-    return this.workoutLogRepository.find({
-      where: whereCondition,
-      relations: ['workoutPlan'], // Include workoutPlan if needed, maybe not necessary just for checking existence
-      order: { startTime: 'ASC' }, // Order doesn't strictly matter for existence check
-    });
+    try {
+      const logs = await this.workoutLogRepository.find(queryOptions);
+      this.logger.log(
+        `Found ${logs.length} logs completed in the date range (queried by endTime).`,
+      );
+      return logs;
+    } catch (error) {
+      this.logger.error(
+        `Error fetching logs by date range (queried by endTime): ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        'Failed to fetch workout logs by date range.',
+      );
+    }
   }
-
-  /**
-   * Calculate XP for completing a workout
-   * @private
-   */
-  // Temporarily removed calculateXP method
-  // private calculateXP(durationMinutes: number, workoutPlan: any): number {
-  //   const baseXP = 50;
-  //   const minutesXP = Math.max(0, Math.floor(durationMinutes)) * 10;
-
-  //   let difficultyMultiplier = 1;
-  //   switch (workoutPlan.difficulty) {
-  //     case 'beginner':
-  //       difficultyMultiplier = 1;
-  //       break;
-  //     case 'intermediate':
-  //       difficultyMultiplier = 1.2;
-  //       break;
-  //     case 'advanced':
-  //       difficultyMultiplier = 1.5;
-  //       break;
-  //     default:
-  //       difficultyMultiplier = 1;
-  //   }
-
-  //   return Math.round((baseXP + minutesXP) * difficultyMultiplier);
-  // }
 }

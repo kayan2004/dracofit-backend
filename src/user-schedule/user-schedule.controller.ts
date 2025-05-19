@@ -8,6 +8,7 @@ import {
   UseGuards,
   Request,
   Logger,
+  Req,
   BadRequestException,
   Post, // Import Post decorator
 } from '@nestjs/common';
@@ -29,9 +30,9 @@ export class UserScheduleController {
   ) {}
 
   @Get()
-  async getSchedule(@Request() req) {
-    this.logger.log(`Getting schedule for user ${req.user.id}`);
-    return this.userScheduleService.getOrCreateSchedule(req.user.id);
+  async getWeeklyView(@Req() req) {
+    const userId = req.user.id; // Or however you get userId
+    return this.userScheduleService.getWeeklyScheduleView(userId); // <<< MUST CALL THIS
   }
 
   @Put()

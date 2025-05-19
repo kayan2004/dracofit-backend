@@ -89,10 +89,10 @@ export class Pet {
 
   @Column({
     name: 'last_streak_date',
-    type: 'date',
+    type: 'timestamp',
     nullable: true,
   })
-  lastStreakDate: Date;
+  lastStreakDate: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

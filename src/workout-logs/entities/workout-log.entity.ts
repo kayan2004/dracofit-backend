@@ -3,12 +3,15 @@ import {
   Column,
   PrimaryGeneratedColumn,
   ManyToOne,
+  OneToMany, // Import OneToMany
   JoinColumn,
   CreateDateColumn,
+  UpdateDateColumn, // Import UpdateDateColumn
   Index,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { WorkoutPlan } from '../../workout_plans/entities/workout_plan.entity';
+import { ExerciseLog } from '../../exercise-logs/entities/exercise-log.entity'; // Import ExerciseLog
 import { Transform } from 'class-transformer';
 
 @Entity('workout_logs')
@@ -16,7 +19,7 @@ export class WorkoutLog {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { onDelete: 'CASCADE' }) // Inverse side (user.workoutLogs) is not specified to avoid TS error if User entity is not changed
   @JoinColumn({ name: 'user_id' })
   @Index()
   user: User;
@@ -35,7 +38,7 @@ export class WorkoutLog {
   @Index()
   startTime: Date;
 
-  @Column({ name: 'end_time', type: 'timestamp' })
+  @Column({ name: 'end_time', type: 'timestamp', nullable: true })
   endTime: Date;
 
   @Column({ name: 'xp_earned', default: 0 })
@@ -43,6 +46,15 @@ export class WorkoutLog {
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' }) // Added updatedAt field
+  updatedAt: Date;
+
+  // Add this relationship for ExerciseLogs
+  @OneToMany(() => ExerciseLog, (exerciseLog) => exerciseLog.workoutLog, {
+    cascade: true,
+  })
+  exerciseLogs: ExerciseLog[];
 
   // Add a virtual getter for duration
   get durationMinutes(): number {

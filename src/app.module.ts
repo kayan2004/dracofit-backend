@@ -25,6 +25,8 @@ import { ExerciseLogsModule } from './exercise-logs/exercise-logs.module';
 import { ExerciseLog } from './exercise-logs/entities/exercise-log.entity';
 import { UserPetsModule } from './user-pets/user-pets.module';
 import { Pet } from './user-pets/entities/user-pet.entity';
+import { StreaksModule } from './streaks/streaks.module';
+import { DebugModule } from './debug/debug.module'; // Import the DebugModule
 // Import the schedule models
 import { UserSchedule } from './user-schedule/entities/user-schedule.entity';
 import { UserScheduleEntry } from './user-schedule/entities/user-schedule-entry.entity';
@@ -32,6 +34,9 @@ import { UserScheduleEntry } from './user-schedule/entities/user-schedule-entry.
 import { UserScheduleModule } from './user-schedule/user-schedule.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TemporarySchedule } from './user-schedule/entities/temporary-schedule.entity';
+import { ScheduleModule } from '@nestjs/schedule';
+import { TasksModule } from './tasks/tasks.module';
+import { TimeModule } from './common/time.module'; // Adjust path if you place it elsewhere
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -76,7 +81,12 @@ import { TemporarySchedule } from './user-schedule/entities/temporary-schedule.e
     ExerciseLogsModule,
     UserPetsModule,
     UserScheduleModule,
+    StreaksModule,
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(), // Ensures cron jobs can run
+    TasksModule,
+    TimeModule, // Add TimeModule
+    DebugModule,
   ],
 })
 export class AppModule {}

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common'; // Import forwardRef
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WorkoutPlansService } from './workout_plans.service';
 import { WorkoutPlansController } from './workout_plans.controller';
@@ -10,7 +10,7 @@ import { ExercisesModule } from '../exercises/exercises.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([WorkoutPlan, WorkoutExercise]),
-    UsersModule,
+    forwardRef(() => UsersModule), // Use forwardRef here for UsersModule
     ExercisesModule,
   ],
   controllers: [WorkoutPlansController],

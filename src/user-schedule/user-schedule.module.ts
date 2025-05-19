@@ -1,11 +1,11 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common'; // Import forwardRef
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserScheduleService } from './user-schedule.service';
 import { UserScheduleController } from './user-schedule.controller';
 import { UserSchedule } from './entities/user-schedule.entity';
 import { UserScheduleEntry } from './entities/user-schedule-entry.entity';
+// import { TemporarySchedule } from './entities/temporary-schedule.entity'; // Commented out
 import { WorkoutPlansModule } from '../workout_plans/workout_plans.module';
-import { TemporarySchedule } from './entities/temporary-schedule.entity';
 import { TasksModule } from '../tasks/tasks.module'; // Import TasksModule
 
 @Module({
@@ -13,10 +13,10 @@ import { TasksModule } from '../tasks/tasks.module'; // Import TasksModule
     TypeOrmModule.forFeature([
       UserSchedule,
       UserScheduleEntry,
-      TemporarySchedule,
+      // TemporarySchedule, // Commented out
     ]),
     WorkoutPlansModule,
-    TasksModule, // Add TasksModule here
+    forwardRef(() => TasksModule), // Use forwardRef here for TasksModule
   ],
   controllers: [UserScheduleController],
   providers: [UserScheduleService],
